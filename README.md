@@ -76,6 +76,9 @@ npm start                   # run from source
 npm run dist                # dist/TransitOverlay-<version>-portable.exe
 ```
 
+## Making a release
+In GitHub: Actions → **Release** → **Run workflow**. It builds `TransitOverlay-<version>-portable.exe` on Windows, zips the mod, and publishes both as release `v<version>` (the version in `desktop/package.json`). Bump that version first for a new release.
+
 ## Publishing the mod
 Copy `mod/transit_overlay` into the staging area (see above), then in the game: Main menu → Mods → Transit Overlay → Publish. After the first publish, copy `_metadata/mod.io_fileid.txt` from the staging folder back into `mod/transit_overlay/_metadata/` and commit it, so later publishes update the same mod.io entry.
 
