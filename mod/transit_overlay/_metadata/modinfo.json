@@ -1,0 +1,15 @@
+{
+    "authors": [
+        {
+            "name": "axelferb",
+            "role": "CREATOR"
+        }
+    ],
+    "description": "Adds a Transit Overlay button to the top-left of the screen, next to the Layers button. Click it and your network is sent to the Transit Overlay desktop app, a planning companion that runs next to the game.\n\nThe app draws your lines on the roads and tracks they use, shows which homes, jobs, industries and businesses your stops reach, and lets you plan new lines and stops before you build them. It also shows cargo supply per good, town demand, and the map's terrain with water and hills.\n\nHow it works\n- The button reads your save (lines, stops, catchment, buildings, cargo, roads, vehicle routes and terrain) and writes it to the game log.\n- The desktop app watches the game log and updates within a couple of seconds.\n- Nothing in your save is changed. The mod only reads data and adds one button, so it can be added to and removed from a save at any time.\n\nThe desktop app (Windows) and its source: https://github.com/axelferb/Transport-Fever-3---Transit-Overlay\n\nReporting a problem: include the lines starting with [transit_overlay] or TFO|ERR from stdout.txt in Steam\\userdata\\<your Steam id>\\3493540\\local\\crash_dump.",
+    "name": "Transit Overlay",
+    "summary": "One button that sends your lines, coverage, cargo and terrain to the Transit Overlay planning app.",
+    "tags": [
+        "Script Mod"
+    ],
+    "url": ""
+}
