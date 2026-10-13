@@ -1,0 +1,54 @@
+name: Release
+
+# Builds the portable Windows app and the mod zip, and publishes them as a GitHub release.
+# Run it from the Actions tab (Run workflow), or push a tag like v2.4.1.
+# The release version comes from desktop/package.json.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build the app
+        working-directory: desktop
+        run: |
+          npm ci
+          npx electron-builder --win portable --publish never
+
+      - name: Zip the mod
+        shell: pwsh
+        run: Compress-Archive -Path mod/transit_overlay -DestinationPath transit_overlay-mod.zip
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Transit Overlay ${{ steps.version.outputs.version }}
+          files: |
+            desktop/dist/TransitOverlay-${{ steps.version.outputs.version }}-portable.exe
+            transit_overlay-mod.zip
+          body: |
+            - **TransitOverlay-${{ steps.version.outputs.version }}-portable.exe**: the desktop app. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
+            - **transit_overlay-mod.zip**: the in-game button. Unzip into `Steam\userdata\<your Steam id>\3493540\local\staging_area\` and turn on Transit Overlay in the mod list.
+
+            Click the Transit Overlay button at the top left of the game screen; the app updates within a couple of seconds.
