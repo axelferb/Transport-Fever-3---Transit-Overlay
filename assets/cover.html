@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#0d1626}
+.bg{position:absolute;inset:0;background:url(bg.png) no-repeat;background-size:2400px auto;background-position:225px -65px;filter:saturate(1.15) contrast(1.05)}
+.shade{position:absolute;inset:0;background:linear-gradient(90deg,#0d1626 0%,#0d1626 30%,rgba(13,22,38,.92) 40%,rgba(13,22,38,.45) 55%,rgba(13,22,38,0) 70%)}
+.text{position:absolute;left:110px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;font-family:'Inter Display','Inter',sans-serif;color:#fff}
+.kicker{font-weight:700;font-size:34px;letter-spacing:.24em;color:#F2A900;margin-bottom:22px}
+h1{margin:0;font-weight:900;font-size:168px;line-height:.9;letter-spacing:-.02em}
+.sub{margin-top:40px;font-weight:600;font-size:44px;color:#c9d3e3;line-height:1.25}
+.lines{position:absolute;left:110px;bottom:120px;width:760px;height:120px}
+</style></head><body>
+<div class="bg"></div><div class="shade"></div>
+<div class="text">
+  <div class="kicker">TRANSPORT FEVER 3</div>
+  <h1>TRANSIT<br>OVERLAY</h1>
+  <div class="sub">Plan lines, coverage<br>and cargo outside the game</div>
+</div>
+<svg class="lines" viewBox="0 0 760 130">
+  <g fill="none" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 14 H290 L340 44 H760" stroke="#E5383B"/>
+    <path d="M0 74 H760" stroke="#2F9E44" stroke-dasharray="34 18"/>
+    <path d="M0 104 H760" stroke="#1C7ED6"/>
+  </g>
+  <g fill="#fff" stroke="#0d1626" stroke-width="5">
+    <circle cx="150" cy="14" r="13"/><circle cx="150" cy="104" r="13"/>
+    <rect x="465" y="26" width="30" height="96" rx="15"/>
+    <circle cx="680" cy="44" r="13"/><circle cx="680" cy="104" r="13"/>
+  </g>
+</svg>
+</body></html>
