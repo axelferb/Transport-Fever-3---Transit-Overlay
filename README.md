@@ -30,10 +30,10 @@ Transit Overlay is a desktop app for planning your network outside the game. It 
 ## Install
 
 ### 1. The desktop app
-Download it from [Releases](../../releases). Neither version needs installing.
+Neither version needs installing. Older versions are on the [Releases](../../releases) page.
 
-- **Windows:** run `TransitOverlay-<version>-portable.exe`. Windows SmartScreen may warn because the file isn't signed: choose *More info → Run anyway*.
-- **Linux:** run `chmod +x TransitOverlay-<version>-linux-x86_64.AppImage`, then start it. Some distributions need `libfuse2` for AppImages. The app looks for the game log in the usual Steam folders, including Flatpak and Snap Steam; if it doesn't find it, use ⚙ Settings → **Choose log file…**.
+- **Windows:** download [TransitOverlay-portable.exe](https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-portable.exe) and run it. Windows SmartScreen may warn because the file isn't signed: choose *More info → Run anyway*.
+- **Linux:** download [TransitOverlay-linux-x86_64.AppImage](https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-linux-x86_64.AppImage), run `chmod +x TransitOverlay-linux-x86_64.AppImage`, then start it. Some distributions need `libfuse2` for AppImages. The app looks for the game log in the usual Steam folders, including Flatpak and Snap Steam; if it doesn't find it, use ⚙ Settings → **Choose log file…**.
 
 ### 2. The in-game button (mod)
 The mod adds a **Transit Overlay** button at the top left of the game screen, next to the Layers button.
@@ -76,8 +76,8 @@ Requires Node.js 20+.
 cd desktop
 npm install
 npm start                   # run from source
-npm run dist                # Windows: dist/TransitOverlay-<version>-portable.exe
-npm run dist:linux          # Linux:   dist/TransitOverlay-<version>-linux-x86_64.AppImage
+npm run dist                # Windows: dist/TransitOverlay-portable.exe
+npm run dist:linux          # Linux:   dist/TransitOverlay-linux-x86_64.AppImage
 ```
 
 ## Making a release

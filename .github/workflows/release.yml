@@ -2,7 +2,10 @@ name: Release
 
 # Builds the desktop app for Windows (portable exe) and Linux (AppImage), zips the mod,
 # and publishes all three as a GitHub release.
-# Run it from the Actions tab (Run workflow), or push a tag like v2.5.1.
+# Run it from the Actions tab (Run workflow), or push a tag like v2.5.2.
+# File names carry no version, so these links always point to the newest release:
+#   https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-portable.exe
+#   https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-linux-x86_64.AppImage
 # The release version comes from desktop/package.json.
 
 on:
@@ -71,12 +74,12 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: Transit Overlay ${{ steps.version.outputs.version }}
           files: |
-            dist/TransitOverlay-${{ steps.version.outputs.version }}-portable.exe
-            dist/TransitOverlay-${{ steps.version.outputs.version }}-linux-x86_64.AppImage
+            dist/TransitOverlay-portable.exe
+            dist/TransitOverlay-linux-x86_64.AppImage
             dist/transit_overlay-mod.zip
           body: |
-            - **TransitOverlay-${{ steps.version.outputs.version }}-portable.exe**: the desktop app for Windows. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
-            - **TransitOverlay-${{ steps.version.outputs.version }}-linux-x86_64.AppImage**: the desktop app for Linux. Make it executable (`chmod +x`) and run it.
+            - **TransitOverlay-portable.exe**: the desktop app for Windows. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
+            - **TransitOverlay-linux-x86_64.AppImage**: the desktop app for Linux. Make it executable (`chmod +x`) and run it.
             - **transit_overlay-mod.zip**: the in-game button, for installing by hand. Most players should subscribe on [mod.io](https://mod.io/g/transportfever3/m/transit-overlay) instead.
 
             Click the Transit Overlay button at the top left of the game screen; the app updates within a couple of seconds.

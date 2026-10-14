@@ -1,7 +1,7 @@
 {
   "name": "transit-overlay",
   "productName": "Transit Overlay",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Draw and analyse transit networks over map screenshots or live Transport Fever 3 data.",
   "main": "main.js",
   "author": "Axel Ferb",
@@ -29,12 +29,12 @@
       "signAndEditExecutable": false
     },
     "portable": {
-      "artifactName": "TransitOverlay-${version}-portable.exe"
+      "artifactName": "TransitOverlay-portable.exe"
     },
     "linux": {
       "target": "AppImage",
       "category": "Game",
-      "artifactName": "TransitOverlay-${version}-linux-x86_64.AppImage"
+      "artifactName": "TransitOverlay-linux-x86_64.AppImage"
     }
   },
   "repository": {
