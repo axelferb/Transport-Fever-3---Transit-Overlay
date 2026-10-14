@@ -32,6 +32,8 @@ function findGameLogs(appId){
   if (process.env.HOME){
     roots.add(path.join(process.env.HOME, '.steam', 'steam'));
     roots.add(path.join(process.env.HOME, '.local', 'share', 'Steam'));
+    roots.add(path.join(process.env.HOME, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam')); // Flatpak Steam
+    roots.add(path.join(process.env.HOME, 'snap', 'steam', 'common', '.local', 'share', 'Steam')); // Snap Steam
   }
   const hits = [];
   for (const root of roots){

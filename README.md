@@ -29,13 +29,16 @@ Transit Overlay is a desktop app for planning your network outside the game. It 
 
 ## Install
 
-### 1. The desktop app (Windows)
-Download `TransitOverlay-<version>-portable.exe` from [Releases](../../releases) and run it. It needs no installer. Windows SmartScreen may warn because the file isn't signed: choose *More info → Run anyway*.
+### 1. The desktop app
+Download it from [Releases](../../releases). Neither version needs installing.
+
+- **Windows:** run `TransitOverlay-<version>-portable.exe`. Windows SmartScreen may warn because the file isn't signed: choose *More info → Run anyway*.
+- **Linux:** run `chmod +x TransitOverlay-<version>-linux-x86_64.AppImage`, then start it. Some distributions need `libfuse2` for AppImages. The app looks for the game log in the usual Steam folders, including Flatpak and Snap Steam; if it doesn't find it, use ⚙ Settings → **Choose log file…**.
 
 ### 2. The in-game button (mod)
 The mod adds a **Transit Overlay** button at the top left of the game screen, next to the Layers button.
 
-- **From mod.io:** subscribe to *Transit Overlay* in the game's mod manager and enable it for your save.
+- **From mod.io:** subscribe to [Transit Overlay](https://mod.io/g/transportfever3/m/transit-overlay) in the game's mod manager and enable it for your save.
 - **By hand:** copy the folder `mod/transit_overlay` to `Steam\userdata\<your Steam id>\3493540\local\staging_area\`, then enable it in the game's mod list.
 
 The mod only reads data and adds one button, so it can be added to and removed from a save at any time.
@@ -73,11 +76,12 @@ Requires Node.js 20+.
 cd desktop
 npm install
 npm start                   # run from source
-npm run dist                # dist/TransitOverlay-<version>-portable.exe
+npm run dist                # Windows: dist/TransitOverlay-<version>-portable.exe
+npm run dist:linux          # Linux:   dist/TransitOverlay-<version>-linux-x86_64.AppImage
 ```
 
 ## Making a release
-In GitHub: Actions → **Release** → **Run workflow**. It builds `TransitOverlay-<version>-portable.exe` on Windows, zips the mod, and publishes both as release `v<version>` (the version in `desktop/package.json`). Bump that version first for a new release.
+In GitHub: Actions → **Release** → **Run workflow**. It builds the Windows exe and the Linux AppImage, zips the mod, and publishes all three as release `v<version>` (the version in `desktop/package.json`). Bump that version first for a new release.
 
 ## Publishing the mod
 Copy `mod/transit_overlay` into the staging area (see above), then in the game: Main menu → Mods → Transit Overlay → Publish. After the first publish, copy `_metadata/mod.io_fileid.txt` from the staging folder back into `mod/transit_overlay/_metadata/` and commit it, so later publishes update the same mod.io entry.

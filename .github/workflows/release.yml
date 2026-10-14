@@ -1,7 +1,8 @@
 name: Release
 
-# Builds the portable Windows app and the mod zip, and publishes them as a GitHub release.
-# Run it from the Actions tab (Run workflow), or push a tag like v2.4.1.
+# Builds the desktop app for Windows (portable exe) and Linux (AppImage), zips the mod,
+# and publishes all three as a GitHub release.
+# Run it from the Actions tab (Run workflow), or push a tag like v2.5.1.
 # The release version comes from desktop/package.json.
 
 on:
@@ -13,8 +14,15 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: windows-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win portable
+          - os: ubuntu-latest
+            target: --linux AppImage
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,20 +32,38 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      - name: Read version
-        id: version
-        shell: bash
-        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
-
       - name: Build the app
         working-directory: desktop
+        shell: bash
         run: |
           npm ci
-          npx electron-builder --win portable --publish never
+          npx electron-builder ${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Zip the mod
-        shell: pwsh
-        run: Compress-Archive -Path mod/transit_overlay -DestinationPath transit_overlay-mod.zip
+        run: cd mod && zip -qr ../dist/transit_overlay-mod.zip transit_overlay
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
@@ -45,10 +71,12 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: Transit Overlay ${{ steps.version.outputs.version }}
           files: |
-            desktop/dist/TransitOverlay-${{ steps.version.outputs.version }}-portable.exe
-            transit_overlay-mod.zip
+            dist/TransitOverlay-${{ steps.version.outputs.version }}-portable.exe
+            dist/TransitOverlay-${{ steps.version.outputs.version }}-linux-x86_64.AppImage
+            dist/transit_overlay-mod.zip
           body: |
-            - **TransitOverlay-${{ steps.version.outputs.version }}-portable.exe**: the desktop app. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
-            - **transit_overlay-mod.zip**: the in-game button. Unzip into `Steam\userdata\<your Steam id>\3493540\local\staging_area\` and turn on Transit Overlay in the mod list.
+            - **TransitOverlay-${{ steps.version.outputs.version }}-portable.exe**: the desktop app for Windows. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
+            - **TransitOverlay-${{ steps.version.outputs.version }}-linux-x86_64.AppImage**: the desktop app for Linux. Make it executable (`chmod +x`) and run it.
+            - **transit_overlay-mod.zip**: the in-game button, for installing by hand. Most players should subscribe on [mod.io](https://mod.io/g/transportfever3/m/transit-overlay) instead.
 
             Click the Transit Overlay button at the top left of the game screen; the app updates within a couple of seconds.
