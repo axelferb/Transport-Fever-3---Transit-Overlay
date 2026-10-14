@@ -84,3 +84,6 @@ Copy `mod/transit_overlay` into the staging area (see above), then in the game: 
 
 ## Export format
 One line per record between `TFO|BEGIN` and `TFO|END`: lines (`L`), stop groups (`G`), passenger and cargo catchment (`C`, `K`), towns (`T`), buildings (`B`), business stock (`S`), industries (`I`), cargo names (`N`), town demand (`D`), vehicle routes (`R`), road and track edges (`E`), terrain grid (`W`, `H`) and errors (`ERR`).
+
+## License
+[MIT](LICENSE). Transport Fever 3 is a trademark of Urban Games; this project is not affiliated with Urban Games.

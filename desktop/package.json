@@ -4,8 +4,8 @@
   "version": "2.4.0",
   "description": "Draw and analyse transit networks over map screenshots or live Transport Fever 3 data.",
   "main": "main.js",
-  "author": "Axel",
-  "license": "UNLICENSED",
+  "author": "Axel Ferb",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win portable"
