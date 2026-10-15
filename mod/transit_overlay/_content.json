@@ -1,8 +1,10 @@
 {
     "archives": null,
     "files": [
+        "transit_overlay/button.css.lua",
         "transit_overlay/button.res.lua",
         "transit_overlay/button.script.lua",
-        "transit_overlay/export.lua"
+        "transit_overlay/export.lua",
+        "transit_overlay/icon.tga"
     ]
 }
