@@ -11,12 +11,20 @@ local builtin = require("::/gui/main/builtin.lua")
 
 local EXPORT = "transit_overlay_1::/transit_overlay/export.lua"
 local ICON = "transit_overlay_1::/transit_overlay/icon.tga"
-local LIT_TICKS = 4 -- half-second ticks the button stays lit after an export (about 2 s)
+local LIT_SECONDS = 2 -- how long the button stays lit after an export (wall clock, see below)
 local TOOLTIP = "Transit Overlay: send lines, stops, coverage, cargo, roads and terrain to the desktop app"
 
 local function log(msg)
 	local p = debugPrint or print
 	pcall(p, "[transit_overlay] " .. tostring(msg))
+end
+
+-- Wall-clock seconds. The export blocks the GUI for a moment, and timer ticks that were due during
+-- it can all fire at once afterwards, so the lit time is measured against the clock, not counted
+-- in ticks.
+local function now()
+	local ok, t = pcall(os.time)
+	return ok and type(t) == "number" and t or nil
 end
 
 local function clock()
@@ -39,14 +47,17 @@ stub.TfoExportButton = react.RegisterRecipe("TfoExportButton", function()
 	-- hooks first, the same on every render
 	local status = react.useState("") -- tooltip line about the last export
 	local lit = react.useState(false) -- shown as "on" right after a successful export
-	local ticks = react.useRef(0)
+	local litSince = react.useRef(0)
 	react.onStepTimer(function()
 		pcall(function()
 			if not lit:old() then return end
-			ticks:set(ticks:get() + 1)
-			if ticks:get() >= LIT_TICKS then lit:set(false) end
+			local t = now()
+			if not t or t - litSince:get() >= LIT_SECONDS then
+				lit:set(false)
+				log("button off")
+			end
 		end)
-	end, 0.5)
+	end, 0.25)
 	local ok, node = pcall(function()
 		local last = status:old()
 		local tooltip = last ~= "" and (TOOLTIP .. "\n" .. last) or TOOLTIP
@@ -64,8 +75,9 @@ stub.TfoExportButton = react.RegisterRecipe("TfoExportButton", function()
 						local t = clock()
 						if run_export() then
 							status:set("Last export: done" .. (t and (" at " .. t) or ""))
-							ticks:set(0)
+							litSince:set(now() or 0)
 							lit:set(true)
+							log("export done, button lit")
 						else
 							status:set("Last export: failed, see the game log")
 							lit:set(false)
