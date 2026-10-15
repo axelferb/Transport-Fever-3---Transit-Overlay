@@ -13,6 +13,7 @@ local EXPORT = "transit_overlay_1::/transit_overlay/export.lua"
 local ICON = "transit_overlay_1::/transit_overlay/icon.tga"
 local LIT_SECONDS = 2 -- how long the button stays lit after an export (wall clock, see below)
 local TOOLTIP = "Transit Overlay: send lines, stops, coverage, cargo, roads and terrain to the desktop app"
+	.. "\nDesktop app older than v2.6.0? Get the latest from the link on the mod page. From v2.6.0 the app tells you when there is an update."
 
 local function log(msg)
 	local p = debugPrint or print
