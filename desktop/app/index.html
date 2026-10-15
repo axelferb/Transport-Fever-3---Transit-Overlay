@@ -109,6 +109,14 @@ button,input,select{font:inherit;color:inherit}
 #gCmd{width:100%;height:90px;font-family:var(--f-mono);font-size:11px;background:var(--bg);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:6px}
 h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .towns{display:flex;flex-direction:column;gap:2px}
+.spots{display:flex;flex-direction:column;gap:2px}
+.spot-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:2px 8px;align-items:center;border-radius:6px;padding:5px 6px 5px 8px;cursor:pointer}
+.spot-row:hover{background:var(--bg)}
+.spot-n{width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--panel);display:grid;place-items:center;font-weight:800;font-size:11px}
+.spot-row .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spot-row .why{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.spot-row .btn{padding:3px 8px;font-size:12px}
+.check-row{display:flex;align-items:center;gap:6px;font-size:13px}
 .cats{display:flex;flex-direction:column;gap:4px}
 .ind-row{display:grid;grid-template-columns:12px minmax(0,1fr);grid-template-areas:"sw nm" ". why";gap:2px 8px;align-items:center;border:0;background:transparent;border-radius:6px;padding:6px 8px;cursor:pointer;text-align:left}
 .ind-row:hover{background:var(--bg)}
@@ -331,6 +339,12 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
       <div class="field"><label for="gReach">New stops</label>
         <select id="gReach"><option value="circle">Reach the whole circle</option><option value="walk">Walking distance</option></select></div>
       <p class="info">Plan with the Station tool: click a road or line to add a stop. What it reaches turns green with an amber ring.</p>
+      <h3 class="sub" id="gSpotsHead">Best spots for a new stop</h3>
+      <div id="gSpotsBox">
+        <label class="check-row"><input type="checkbox" id="gHeat"> Heatmap of gaps</label>
+        <p class="info" id="gSpotsInfo"></p>
+        <div id="gSpots" class="spots"></div>
+      </div>
       <h3 class="sub" id="gTownsHead">Towns with the most not reached</h3>
       <div id="gTowns" class="towns"></div>
     </section>
@@ -421,6 +435,16 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
+/* Language. Text is written in English in the code and looked up in STRINGS for other languages;
+   anything without a translation stays English. {name} in a string is filled from vars. */
+let LANG = 'en';
+try { LANG = localStorage.getItem('tfo-lang') || ((navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en'); } catch {}
+const LOCALE = () => LANG === 'de' ? 'de-DE' : 'en';
+function T(en, vars){
+  const tr = (LANG !== 'en' && STRINGS[LANG] && STRINGS[LANG][en]) || en;
+  return vars ? tr.replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : tr;
+}
+const STRINGS = {de:{}};
 const FONT = '"Overpass", system-ui, sans-serif';
 const MODES = {
   subway:{label:'Subway', w:9},
@@ -1048,6 +1072,7 @@ function renderScene(g, screen){
   if (activeTab === 'cargo'){ drawCargoRadii(g, u); drawCargo(g, u); }
   const G = computeGeometry();
   drawNetwork(g, G, u, screen);
+  if (showCov && S.game && S.game.xf && S.settings.coverage !== 'off') drawGapSpots(g, u);
   return G;
 }
 
@@ -2230,6 +2255,7 @@ function fitWorldBox(pts){
 function drawCoverage(g, u){
   if (!S.game || !S.game.xf) return;
   const mode = S.settings.coverage; if (!mode || mode === 'off') return;
+  if (S.settings.gapHeat !== false) drawGapHeat(g);
   const cov = gameCovered(), plan = planCoverage().set, k = pxPerM(), all = mode === 'all', types = covTypes();
   for (const b of S.game.buildings){
     const t = b[4]; if (!types[t] || !inFocus(b)) continue;
@@ -2247,6 +2273,115 @@ function drawCoverage(g, u){
     g.stroke();
   }
 }
+/* Gaps: where the people are that no stop reaches. A heatmap of them, and the spots where one new
+   stop would reach the most (picked one at a time, so the spots don't count the same people twice). */
+let gapCache = {sig:null};
+function gapRadius(){ // the usual reach of a bus or tram stop in this save
+  const rs = Object.values(S.game.groups).map(g => g.r).filter(r => r > 0).sort((a, b) => a - b);
+  return rs.length ? rs[Math.floor(rs.length / 2)] : 160;
+}
+function gapData(){
+  const cov = gameCovered(), pc = planCoverage(), types = covTypes();
+  const sig = [S.game.at, pc.sig, S.game.focus, types.join(), S.settings.roadSnap !== false].join('#');
+  if (gapCache.sig === sig) return gapCache;
+  const pts = S.game.buildings.filter(b => types[b[4]] && inFocus(b) && b[3] > 0 && !servedBy(b, cov, pc.set));
+  const R = gapRadius(), CELL = Math.max(20, R / 4), rr = Math.ceil(R / CELL), spots = [];
+  const left = new Map(pts.map(b => [b[0], b]));
+  const snap = S.settings.roadSnap !== false && S.game.edges && S.game.edges.length;
+  for (let n = 0; n < 5 && left.size; n++){
+    const score = new Map();
+    for (const b of left.values()){
+      const cx = Math.floor(b[1] / CELL), cy = Math.floor(b[2] / CELL);
+      for (let i = -rr; i <= rr; i++) for (let j = -rr; j <= rr; j++){
+        if (Math.hypot((cx + i + 0.5)*CELL - b[1], (cy + j + 0.5)*CELL - b[2]) > R) continue;
+        const k = (cx + i) + ',' + (cy + j); score.set(k, (score.get(k) || 0) + b[3]);
+      }
+    }
+    let best = null, bs = 0;
+    for (const [k, v] of score){
+      if (v <= bs) continue;
+      const [ci, cj] = k.split(',').map(Number); // keep spots apart, so each one is a different place
+      if (spots.some(o => Math.hypot((ci + 0.5)*CELL - o.x, (cj + 0.5)*CELL - o.y) < R*1.2)) continue;
+      bs = v; best = k;
+    }
+    if (!best || bs < 20) break;
+    const [i, j] = best.split(',').map(Number);
+    let x = (i + 0.5)*CELL, y = (j + 0.5)*CELL;
+    if (snap){ const rn = nearStreet(x, y, R * 0.5); if (rn){ const q = roadGraph().nodes.get(rn.n); x = q[0]; y = q[1]; } }
+    const s = {x, y, r:R, people:[0, 0, 0], town:{}};
+    for (const [id, b] of left) if (Math.hypot(b[1] - x, b[2] - y) <= R){ s.people[b[4]] += b[3]; s.town[b[5]] = (s.town[b[5]] || 0) + b[3]; left.delete(id); }
+    const tid = Object.entries(s.town).sort((a, b) => b[1] - a[1])[0];
+    s.townName = tid ? (S.game.towns[tid[0]] || '') : '';
+    s.total = s.people[0] + s.people[1] + s.people[2];
+    if (s.total > 0) spots.push(s);
+  }
+  spots.sort((a, b) => b.total - a.total);
+  return gapCache = {sig, pts, spots, R, heat:null};
+}
+function drawGapHeat(g){
+  const D = gapData(); if (!D.pts.length) return;
+  // drawn at a quarter of the map's size and scaled up: it's a soft layer, and this keeps it fast
+  const sc = 0.25, key = bg.w + 'x' + bg.h + ':' + pxPerM();
+  if (!D.heat || D.heat.key !== key){
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bg.w*sc)); c.height = Math.max(1, Math.ceil(bg.h*sc));
+    const h = c.getContext('2d'), r = Math.max(3, D.R * 0.7 * pxPerM() * sc);
+    const blob = document.createElement('canvas'), bs = Math.ceil(r*2); blob.width = blob.height = bs;
+    const bx = blob.getContext('2d'), gr = bx.createRadialGradient(bs/2, bs/2, 0, bs/2, bs/2, bs/2);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); bx.fillStyle = gr; bx.fillRect(0, 0, bs, bs);
+    for (const b of D.pts){ const p = W2I(b[1], b[2]); h.globalAlpha = Math.min(1, 0.04 + Math.sqrt(b[3]) * 0.025); h.drawImage(blob, p.x*sc - bs/2, p.y*sc - bs/2); }
+    const id = h.getImageData(0, 0, c.width, c.height), d = id.data;
+    for (let i = 0; i < d.length; i += 4){
+      const a = d[i + 3] / 255; if (!a) continue;
+      const t = Math.min(1, a * 1.5); // light amber where few people are left out, deep red where many are
+      d[i] = 244 - 34*t; d[i + 1] = 190 - 150*t; d[i + 2] = 60 - 30*t; d[i + 3] = Math.round(255 * Math.min(0.6, 0.12 + t*0.6));
+    }
+    h.putImageData(id, 0, 0);
+    D.heat = {key, c};
+  }
+  g.save(); g.imageSmoothingEnabled = true; g.drawImage(D.heat.c, 0, 0, bg.w, bg.h); g.restore();
+}
+function drawGapSpots(g, u){
+  const D = gapData(), k = pxPerM();
+  D.spots.forEach((s, n) => {
+    const p = W2I(s.x, s.y);
+    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(28,32,38,0.7)'; g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(p.x, p.y, 11*u, 0, Math.PI*2); g.fillStyle = '#1C2026'; g.fill(); g.lineWidth = 2*u; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#fff'; g.font = `800 ${12*u}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
+    const lbl = '+' + s.total.toLocaleString(LOCALE());
+    g.font = `700 ${11.5*u}px ${getComputedStyle(document.body).fontFamily}`; const w = g.measureText(lbl).width + 12*u;
+    g.beginPath(); g.roundRect(p.x + 14*u, p.y - 9*u, w, 18*u, 9*u); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill(); g.lineWidth = u; g.strokeStyle = 'rgba(0,0,0,0.2)'; g.stroke();
+    g.fillStyle = '#1C2026'; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
+  });
+}
+function addSpotStop(s){
+  commit();
+  const at = W2I(s.x, s.y), id = addNode(at.x, at.y);
+  S.stations[id] = {name:'', side:'auto', solo:true};
+  sel = {line:null, branch:null, node:id}; ui(); draw();
+  toast(T('Stop added. It reaches about {n} people no stop reaches today.', {n:s.total.toLocaleString(LOCALE())}));
+}
+function renderSpots(){
+  const G = S.game, D = gapData(), types = covTypes(), any = types.some(Boolean);
+  $('#gSpotsHead').hidden = $('#gSpotsBox').hidden = !any || !G.xf;
+  $('#gHeat').checked = S.settings.gapHeat !== false;
+  const box = $('#gSpots'); box.textContent = '';
+  if (!any || !G.xf) return;
+  $('#gSpotsInfo').textContent = D.spots.length ? T('Where one new stop ({r} m reach, like your other stops) would reach the most people no stop reaches today. Click a spot to zoom to it.', {r:Math.round(D.R)}) : T('Every home and workplace shown is already reached. Nice work.');
+  D.spots.forEach((s, n) => {
+    const row = document.createElement('div'); row.className = 'spot-row'; row.title = T('Zoom to this spot');
+    const num = document.createElement('span'); num.className = 'spot-n'; num.textContent = n + 1;
+    const nm = document.createElement('span'); nm.className = 'nm';
+    nm.textContent = '+' + s.total.toLocaleString(LOCALE()) + (s.townName ? ' · ' + s.townName : '');
+    const why = document.createElement('span'); why.className = 'why';
+    why.textContent = CATS.map((c, i) => s.people[i] ? s.people[i].toLocaleString(LOCALE()) + ' ' + T(c.unit) : '').filter(Boolean).join(', ');
+    nm.append(why);
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'btn'; add.textContent = T('Add stop');
+    add.addEventListener('click', e => { e.stopPropagation(); addSpotStop(s); });
+    row.addEventListener('click', () => fitWorldBox([W2I(s.x - s.r*2, s.y - s.r*2), W2I(s.x + s.r*2, s.y + s.r*2)]));
+    row.append(num, nm, add); box.append(row);
+  });
+}
+
 function fillAlignSelects(){
   const opts = Object.entries(S.game.groups).filter(([, gr]) => gr.r > 0 || true).sort((a, b) => a[1].name.localeCompare(b[1].name));
   for (const id of ['gA1', 'gA2']){
@@ -2266,7 +2401,7 @@ function gameUI(){
   if (!G){ $('#covSec').hidden = true; $('#topAreaWrap').hidden = true; return; }
   if ($('#gA1').options.length !== Object.keys(G.groups).length) fillAlignSelects();
   const pax = G.lines.filter(isPax).length, cargo = G.lines.length - pax;
-  $('#gSummary').textContent = `${pax} passenger lines, ${cargo} cargo · ${Object.keys(G.groups).length} stations · ${G.buildings.length.toLocaleString('en')} buildings`;
+  $('#gSummary').textContent = `${pax} passenger lines, ${cargo} cargo · ${Object.keys(G.groups).length} stations · ${G.buildings.length.toLocaleString(LOCALE())} buildings`;
   const tot = catTotals(), types = covTypes();
   const cs = $('#gCats'); cs.textContent = '';
   CATS.forEach((c, i) => {
@@ -2276,9 +2411,9 @@ function gameUI(){
     const sw = document.createElement('span'); sw.className = 'cat-sw s' + i; sw.style.background = c.color;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = c.label;
     const v = tot[i], pct = v.people ? Math.round(v.served / v.people * 100) : 0;
-    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${pct}% of ${v.people.toLocaleString('en')} ${c.unit}`;
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${pct}% of ${v.people.toLocaleString(LOCALE())} ${c.unit}`;
     row.append(cb, sw, nm, num);
-    if (v.planned){ const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = `+${v.planned.toLocaleString('en')} ${c.unit} with your new stops`; row.append(pl); }
+    if (v.planned){ const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = `+${v.planned.toLocaleString(LOCALE())} ${c.unit} with your new stops`; row.append(pl); }
     cs.append(row);
   });
   const ri = G.routeInfo;
@@ -2311,12 +2446,13 @@ function gameUI(){
     const pop = {}; G.buildings.forEach(b => { if (b[4] === 0) pop[b[5]] = (pop[b[5]] || 0) + b[3]; });
     const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Whole map'; areaSel.append(o0);
     Object.keys(G.towns).sort((a, b) => (pop[b] || 0) - (pop[a] || 0)).forEach(k => {
-      const o = document.createElement('option'); o.value = k; o.textContent = `${G.towns[k]} (${(pop[k] || 0).toLocaleString('en')} residents)`; areaSel.append(o);
+      const o = document.createElement('option'); o.value = k; o.textContent = `${G.towns[k]} (${(pop[k] || 0).toLocaleString(LOCALE())} residents)`; areaSel.append(o);
     });
     areaSel.dataset.n = String(G.at);
   }
   setVal(areaSel, G.focus == null ? '' : String(G.focus));
   $('#gDrawn').hidden = !S.lines.some(l => !l.gameId);
+  renderSpots();
   const stats = townStats();
   const anyType = types.some(Boolean);
   $('#gTownsHead').hidden = !anyType || !stats.length || G.focus != null;
@@ -2326,7 +2462,7 @@ function gameUI(){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'town-row';
     const p = r.people ? Math.round(r.served / r.people * 100) : 0;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
-    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${(r.people - r.served).toLocaleString('en')} not reached`;
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${(r.people - r.served).toLocaleString(LOCALE())} not reached`;
     const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = p + '%'; bar.append(fill);
     const pc = document.createElement('span'); pc.className = 'pc'; pc.textContent = p + '%';
     b.append(nm, num, bar, pc);
@@ -2521,7 +2657,7 @@ function cargoUI(){
   const bizNone = biz.filter(x => !x.supplied).length, bizNoStop = biz.filter(x => !x.supplied && !x.reached).length;
   const gname = goodSel() == null ? 'goods' : cargoName(goodSel()).toLowerCase();
   const indTxt = S.settings.cargoInd === false ? '' : `${inds.length} industries need ${gname === 'goods' ? 'inputs' : gname}: ${unreached} without a cargo stop, ${missing} not supplied.` + (goodSel() != null ? ` ${srcN} make it.` : '') + ' ';
-  $('#cSummary').textContent = indTxt + `${biz.length.toLocaleString('en')} buildings want ${gname}: ${bizNone.toLocaleString('en')} not supplied (${bizNoStop.toLocaleString('en')} out of reach of any cargo stop).`;
+  $('#cSummary').textContent = indTxt + `${biz.length.toLocaleString(LOCALE())} buildings want ${gname}: ${bizNone.toLocaleString(LOCALE())} not supplied (${bizNoStop.toLocaleString(LOCALE())} out of reach of any cargo stop).`;
   const list = $('#cList'); list.textContent = '';
   (S.settings.cargoInd === false ? [] : inds).filter(x => x.s.level !== 'ok').sort((a, b) => (a.s.level === 'unreached') - (b.s.level === 'unreached') || b.i.level - a.i.level).slice(0, 12).forEach(({i, s}) => {
     const row = document.createElement('button'); row.type = 'button'; row.className = 'ind-row';
@@ -2784,6 +2920,7 @@ $('#gRadii').addEventListener('change', e => { S.settings.radii = e.target.value
 $('#gSnap').addEventListener('change', e => { S.settings.roadSnap = e.target.checked; autosave(); draw(); });
 $('#gColors').addEventListener('change', e => { S.settings.gameColors = e.target.checked; if (S.game && S.game.xf){ commit(); buildGameNetwork(); } ui(); draw(); });
 $('#gRebuild').addEventListener('click', () => { if (!S.game || !S.game.xf) return; commit(); buildGameNetwork(); fitNetwork(); ui(); draw(); toast(`Drew ${S.lines.filter(l => l.gameId).length} lines from the game`); });
+$('#gHeat').addEventListener('change', e => { S.settings.gapHeat = e.target.checked; draw(); autosave(); });
 $('#gCov').addEventListener('change', e => { S.settings.coverage = e.target.value; ui(); draw(); });
 
 /* ---------- desktop app bridge (Electron) ---------- */
