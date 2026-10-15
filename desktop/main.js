@@ -77,6 +77,27 @@ function startWatching(){
   readNew(p); // first call only records the current end of the log; earlier exports are ignored
   watchTimer = setInterval(checkLog, 1500);
 }
+// Update check: asks GitHub for the newest release once at startup. Never downloads or installs
+// anything; the page shows a banner that links to the file for this platform.
+const REPO = 'axelferb/Transport-Fever-3---Transit-Overlay';
+function newer(a, b){ // is version a newer than b ("2.6.0" vs "2.5.1")
+  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0), pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++){ if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0); }
+  return false;
+}
+async function checkUpdate(){
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const rel = await r.json();
+    const latest = String(rel.tag_name || '').replace(/^v/, ''), current = app.getVersion();
+    if (!latest || !newer(latest, current)) return null;
+    const file = process.platform === 'win32' ? 'TransitOverlay-portable.exe' : process.platform === 'linux' ? 'TransitOverlay-linux-x86_64.AppImage' : null;
+    const url = file ? `https://github.com/${REPO}/releases/latest/download/${file}` : `https://github.com/${REPO}/releases/latest`;
+    return { current, latest, url, notes: rel.html_url || `https://github.com/${REPO}/releases/latest` };
+  } catch { return null; }
+}
+
 function stopWatching(){ if (watchTimer){ clearInterval(watchTimer); watchTimer = null; } }
 
 function createWindow(){
@@ -94,6 +115,7 @@ function createWindow(){
 
 ipcMain.handle('log-info', () => ({ path: resolveLogPath(), watching: !!watchTimer, lastAt: lastSeen.at, count: lastSeen.count }));
 ipcMain.handle('read-latest', () => readLatest());
+ipcMain.handle('check-update', () => checkUpdate());
 ipcMain.handle('set-watch', (_e, on) => { config.watching = !!on; saveConfig(); on ? startWatching() : stopWatching(); return !!watchTimer; });
 ipcMain.handle('choose-log', async () => {
   const r = await dialog.showOpenDialog(win, {
