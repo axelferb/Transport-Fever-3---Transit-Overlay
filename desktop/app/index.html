@@ -154,14 +154,14 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .rot{display:flex;align-items:center;gap:6px;min-width:0}
 .rot input{flex:1;min-width:0;accent-color:var(--accent)}
 .rot output{font-family:var(--f-mono);font-size:11px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
-.cat-row{display:grid;grid-template-columns:auto 12px minmax(0,1fr) auto;align-items:center;gap:8px;cursor:pointer;padding:3px 0}
+.cat-row{display:grid;grid-template-columns:auto 12px auto minmax(0,1fr);align-items:center;gap:8px;cursor:pointer;padding:3px 0}
 .cat-row input{accent-color:var(--accent);width:16px;height:16px;margin:0}
 .cat-sw{width:12px;height:12px;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--rule)}
 .cat-sw.s0{border-radius:50%}
 .cat-sw.s2{transform:rotate(45deg) scale(.85)}
-.cat-row .nm{font-weight:600}
+.cat-row .nm{font-weight:600;white-space:nowrap}
 .cat-row .plus{grid-column:3 / -1;font-size:12px;font-weight:600;color:#159447;margin-top:-4px}
-.cat-row .num{font-family:var(--f-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cat-row .num{font-family:var(--f-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;line-height:1.3}
 .town-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nm pc" "bar num";gap:3px 10px;align-items:center;border:0;background:transparent;border-radius:6px;padding:6px 8px;cursor:pointer;text-align:left}
 .town-row:hover{background:var(--bg)}
 .town-row .nm{grid-area:nm;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -404,6 +404,8 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 
     <section data-key="map" data-tabs="settings">
       <h2>Map display</h2>
+      <div class="field"><label for="setLang">Language</label>
+        <select id="setLang"><option value="en">English</option><option value="de">Deutsch</option></select></div>
       <div class="field"><label for="setFade">Fade map</label><input type="range" id="setFade" min="0" max="0.8" step="0.05"></div>
       <div class="field"><label for="setSize">Line size</label><input type="range" id="setSize" min="0.4" max="2.5" step="0.05"></div>
       <label class="check"><input type="checkbox" id="setGray"> Grey out the screenshot</label>
@@ -474,7 +476,334 @@ function T(en, vars){
   const tr = (LANG !== 'en' && STRINGS[LANG] && STRINGS[LANG][en]) || en;
   return vars ? tr.replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : tr;
 }
-const STRINGS = {de:{}};
+/* German. Keys are the English text exactly as written in the code. */
+const STRINGS = {de:{
+  "Workspace": "Arbeitsbereich",
+  "Plan and draw lines": "Linien planen und zeichnen",
+  "Lines": "Linien",
+  "See what stops reach": "Sehen, was Haltestellen erreichen",
+  "Coverage": "Abdeckung",
+  "Industries and deliveries": "Industrien und Lieferungen",
+  "Cargo": "Fracht",
+  "Area": "Gebiet",
+  "Hide until the next version": "Bis zur nächsten Version ausblenden",
+  "Hide update notice": "Update-Hinweis ausblenden",
+  "Hide for now": "Vorerst ausblenden",
+  "Hide mod notice": "Mod-Hinweis ausblenden",
+  "Game data · open settings": "Spieldaten · Einstellungen öffnen",
+  "A metro-style diagram of your lines, to save and share": "Ein Netzplan deiner Linien im U-Bahn-Stil, zum Speichern und Teilen",
+  "Schematic map": "Netzplan",
+  "Export PNG": "PNG exportieren",
+  "Settings": "Einstellungen",
+  "Map canvas": "Karte",
+  "Tool": "Werkzeug",
+  "Select and move (V)": "Auswählen und verschieben (V)",
+  "Edit": "Bearbeiten",
+  "Draw lines (D)": "Linien zeichnen (D)",
+  "Draw": "Zeichnen",
+  "Mark stations (S)": "Stationen markieren (S)",
+  "Station": "Station",
+  "Cut segments out of lines (X)": "Abschnitte aus Linien schneiden (X)",
+  "Cut": "Schneiden",
+  "Mode for new lines": "Verkehrsmittel für neue Linien",
+  "Subway (1)": "U-Bahn (1)",
+  "Subway": "U-Bahn",
+  "Train (2)": "Zug (2)",
+  "Train": "Zug",
+  "Tram (3)": "Straßenbahn (3)",
+  "Tram": "Straßenbahn",
+  "Bus (4)": "Bus (4)",
+  "Bus": "Bus",
+  "Ferry (5)": "Fähre (5)",
+  "Ferry": "Fähre",
+  "History": "Verlauf",
+  "Undo (Ctrl+Z)": "Rückgängig (Strg+Z)",
+  "Undo": "Rückgängig",
+  "Redo (Ctrl+Shift+Z)": "Wiederholen (Strg+Umschalt+Z)",
+  "Redo": "Wiederholen",
+  "Example map.": "Beispielkarte.",
+  "Paste a screenshot with Ctrl+V (⌘V on Mac), drop an image here, or open one to start your own.": "Füge mit Strg+V (⌘V auf dem Mac) einen Screenshot ein, zieh ein Bild hierher oder öffne eines, um mit deiner eigenen Karte zu beginnen.",
+  "Open image": "Bild öffnen",
+  "Zoom out": "Herauszoomen",
+  "Zoom in": "Hineinzoomen",
+  "Fit to screen (F)": "An Bildschirm anpassen (F)",
+  "Fit": "Anpassen",
+  "Rotate map 15° left (Shift: 90°)": "Karte 15° nach links drehen (Umschalt: 90°)",
+  "Rotate map left": "Karte nach links drehen",
+  "Reset rotation to 0°": "Drehung auf 0° zurücksetzen",
+  "Rotate map 15° right (Shift: 90°)": "Karte 15° nach rechts drehen (Umschalt: 90°)",
+  "Rotate map right": "Karte nach rechts drehen",
+  "Drop a screenshot or project file": "Screenshot oder Projektdatei hier ablegen",
+  "Selected line": "Ausgewählte Linie",
+  "Name": "Name",
+  "Mode": "Verkehrsmittel",
+  "Color": "Farbe",
+  "Then click a point on this line to split off a branch, or its end to extend it": "Klicke dann auf einen Punkt dieser Linie, um einen Abzweig zu beginnen, oder auf ihr Ende, um sie zu verlängern",
+  "Draw branch": "Abzweig zeichnen",
+  "Delete line": "Linie löschen",
+  "Selected stretch": "Ausgewählter Abschnitt",
+  "One-way on this stretch": "Einbahn auf diesem Abschnitt",
+  "Remove the highlighted stretch between two points": "Den markierten Abschnitt zwischen zwei Punkten entfernen",
+  "Cut segment": "Abschnitt schneiden",
+  "Flip direction": "Richtung umkehren",
+  "Delete branch": "Abzweig löschen",
+  "e.g. Central": "z. B. Hauptbahnhof",
+  "Label": "Beschriftung",
+  "Automatic": "Automatisch",
+  "Right": "Rechts",
+  "Left": "Links",
+  "Above": "Oben",
+  "Below": "Unten",
+  "Hidden": "Ausgeblendet",
+  "Reach (m)": "Reichweite (m)",
+  "Show line badges": "Linienkennungen zeigen",
+  "Mark as station": "Als Station markieren",
+  "Delete point": "Punkt löschen",
+  "Industry": "Industrie",
+  "Close": "Schließen",
+  "Game connection": "Verbindung zum Spiel",
+  "With the Transit Overlay mod: click its button at the top left of the game screen. Without it: copy the export command, open the game console (key left of 1), paste and press Enter.": "Mit der Transit-Overlay-Mod: Klicke auf ihren Button oben links im Spiel. Ohne Mod: Kopiere den Exportbefehl, öffne die Spielkonsole (Taste links neben der 1), füge ihn ein und drücke Enter.",
+  "Copy command": "Befehl kopieren",
+  "Import the game log:": "Spiellog importieren:",
+  "Import stdout.txt": "stdout.txt importieren",
+  "Live sync": "Live-Synchronisierung",
+  "Looking for the game log…": "Suche das Spiellog …",
+  "Update the map whenever you run the export in the game": "Karte aktualisieren, sobald du im Spiel exportierst",
+  "Import latest export": "Letzten Export importieren",
+  "Choose log file…": "Logdatei wählen …",
+  "Run the export command again in the game first": "Führe zuerst den Exportbefehl im Spiel erneut aus",
+  "Re-import": "Neu importieren",
+  "Draw a map from the game's buildings instead of using a screenshot": "Eine Karte aus den Gebäuden des Spiels zeichnen statt einen Screenshot zu nutzen",
+  "Use game map": "Spielkarte verwenden",
+  "Line up with your screenshot": "An deinem Screenshot ausrichten",
+  "Pick two stations far apart that are visible in the screenshot, then click where each one is.": "Wähle zwei weit auseinanderliegende Stationen, die im Screenshot zu sehen sind, und klicke dann auf ihre Position.",
+  "Station 1": "Station 1",
+  "Click it on the map": "Auf der Karte anklicken",
+  "Station 2": "Station 2",
+  "Mirror (tick if the result looks flipped)": "Spiegeln (anhaken, wenn das Ergebnis gespiegelt aussieht)",
+  "Remove hand-drawn lines": "Selbst gezeichnete Linien entfernen",
+  "Export command": "Exportbefehl",
+  "Show": "Anzeigen",
+  "Gaps only": "Nur Lücken",
+  "Reached and gaps": "Erreicht und Lücken",
+  "Nothing": "Nichts",
+  "Circles": "Kreise",
+  "My new stops": "Nur neue",
+  "All stops": "Alle",
+  "None": "Keine",
+  "New stops": "Neue Haltestellen",
+  "Reach the whole circle": "Ganzer Kreis",
+  "Walking distance": "Fußweg",
+  "Plan with the Station tool: click a road or line to add a stop. What it reaches turns green with an amber ring.": "Plane mit dem Stations-Werkzeug: Klicke auf eine Straße oder Linie, um eine Haltestelle hinzuzufügen. Was sie erreicht, wird grün mit gelbem Ring.",
+  "Best spots for a new stop": "Beste Orte für eine neue Haltestelle",
+  "Heatmap of gaps": "Heatmap der Lücken",
+  "Towns with the most not reached": "Städte mit den meisten Nicht-Erreichten",
+  "Needs game data": "Braucht Spieldaten",
+  "Coverage and cargo come from your Transport Fever 3 save. Open ⚙ Settings → Game connection to import it.": "Abdeckung und Fracht kommen aus deinem Transport-Fever-3-Spielstand. Öffne ⚙ Einstellungen → Verbindung zum Spiel, um ihn zu importieren.",
+  "Open settings": "Einstellungen öffnen",
+  "Problems only": "Nur Probleme",
+  "Everything": "Alles",
+  "Goods": "Güter",
+  "Industries ■": "Industrien ■",
+  "Commercial buildings ▲": "Gewerbegebäude ▲",
+  "Town industrial buildings ◆": "Städtische Industriegebäude ◆",
+  "supplied": "beliefert",
+  "reached, missing": "erreicht, fehlt etwas",
+  "no cargo stop": "keine Frachthaltestelle",
+  "makes it": "stellt es her",
+  "Industries needing attention": "Industrien, die Aufmerksamkeit brauchen",
+  "Goods towns want (delivered / wanted)": "Güter, die Städte wollen (geliefert / gewünscht)",
+  "Click an industry on the map in Edit mode to see what it needs and makes.": "Klicke im Bearbeiten-Modus auf eine Industrie, um zu sehen, was sie braucht und herstellt.",
+  "No lines yet. Pick a mode above, choose Draw, and click on the map.": "Noch keine Linien. Wähle oben ein Verkehrsmittel, dann Zeichnen, und klicke auf die Karte.",
+  "Show cargo lines here too": "Frachtlinien hier auch zeigen",
+  "Lines from the game": "Linien aus dem Spiel",
+  "Follow roads and tracks": "Straßen und Gleisen folgen",
+  "To route lines along roads, copy the export command again (it now includes roads), run it in the game and re-import.": "Damit Linien den Straßen folgen, kopiere den Exportbefehl erneut (er enthält jetzt Straßen), führe ihn im Spiel aus und importiere neu.",
+  "Snap lines I draw to roads and tracks": "Meine gezeichneten Linien an Straßen und Gleise anlegen",
+  "Use the game's line colors": "Linienfarben aus dem Spiel verwenden",
+  "Draw lines from game data": "Linien aus Spieldaten zeichnen",
+  "Map display": "Kartenanzeige",
+  "Fade map": "Karte aufhellen",
+  "Line size": "Linienstärke",
+  "Grey out the screenshot": "Screenshot ausgrauen",
+  "Show terrain and water": "Gelände und Wasser zeigen",
+  "Water level (m)": "Wasserstand (m)",
+  "Include legend in export": "Legende im Export",
+  "Line badges at interchanges": "Linienkennungen an Umsteigestationen",
+  "Clear all lines": "Alle Linien löschen",
+  "Remove lines, game data and the background": "Linien, Spieldaten und Hintergrund entfernen",
+  "Start over": "Neu beginnen",
+  "Project": "Projekt",
+  "Open a screenshot, a saved project, or the game's stdout.txt": "Einen Screenshot, ein gespeichertes Projekt oder die stdout.txt des Spiels öffnen",
+  "Open…": "Öffnen …",
+  "Save lines, stops and game data so you can keep editing later": "Linien, Haltestellen und Spieldaten speichern, um später weiterzuarbeiten",
+  "Save project": "Projekt speichern",
+  "Ctrl+V pastes a screenshot as the background. Your work is also kept automatically between sessions.": "Strg+V fügt einen Screenshot als Hintergrund ein. Deine Arbeit wird außerdem automatisch zwischen Sitzungen gespeichert.",
+  "Shortcuts": "Tastenkürzel",
+  "Paste screenshot": "Screenshot einfügen",
+  "Click line": "Linie anklicken",
+  "With a line selected, start a branch from it": "Bei ausgewählter Linie: einen Abzweig beginnen",
+  "End the current branch (twice ends the line)": "Aktuellen Abzweig beenden (zweimal beendet die Linie)",
+  "Finish the line you're drawing": "Die gezeichnete Linie fertigstellen",
+  "Remove last point while drawing": "Letzten Punkt beim Zeichnen entfernen",
+  "Draw at 45° angles": "In 45°-Winkeln zeichnen",
+  "Place a point without snapping": "Punkt ohne Einrasten setzen",
+  "Pan · scroll wheel zooms": "Verschieben · Mausrad zoomt",
+  "Cut tool: click a segment to remove it": "Schneiden-Werkzeug: Abschnitt anklicken, um ihn zu entfernen",
+  "Cut the selected segment, or remove the selected station or point": "Ausgewählten Abschnitt schneiden oder ausgewählte Station bzw. Punkt entfernen",
+  "A metro-style diagram of the passenger lines on the map. It follows the area you picked at the top.": "Ein Netzplan im U-Bahn-Stil mit den Personenlinien auf der Karte. Er folgt dem oben gewählten Gebiet.",
+  "Title": "Titel",
+  "My network": "Mein Netz",
+  "Layout": "Anordnung",
+  "Schematic (45° angles)": "Schematisch (45°-Winkel)",
+  "Geographic": "Geografisch",
+  "Style": "Stil",
+  "Light": "Hell",
+  "Dark": "Dunkel",
+  "Station names": "Stationsnamen",
+  "Lines I drew myself (dashed)": "Selbst gezeichnete Linien (gestrichelt)",
+  "Save PNG": "PNG speichern",
+  "Save SVG": "SVG speichern",
+  "Made with Transit Overlay for Transport Fever 3": "Erstellt mit Transit Overlay für Transport Fever 3",
+  "There are no passenger lines on the map yet. Import game data or draw a line first.": "Auf der Karte gibt es noch keine Personenlinien. Importiere zuerst Spieldaten oder zeichne eine Linie.",
+  "Language": "Sprache",
+  "Cut a segment out of {name}. Undo with Ctrl+Z.": "Abschnitt aus {name} geschnitten. Mit Strg+Z rückgängig machen.",
+  "{name} removed. Undo with Ctrl+Z.": "{name} entfernt. Mit Strg+Z rückgängig machen.",
+  "This stop would reach {n} residents no game stop reaches": "Diese Haltestelle würde {n} Einwohner erreichen, die keine Haltestelle im Spiel erreicht",
+  "Branch joined {name}. Click the line to add another, or press Enter.": "Abzweig mit {name} verbunden. Klicke auf die Linie für einen weiteren oder drücke Enter.",
+  "Saved to {path}": "Gespeichert unter {path}",
+  "Could not save: {err}": "Speichern fehlgeschlagen: {err}",
+  "Saved {file}": "{file} gespeichert",
+  "Removed hand-drawn lines that belonged to the old screenshot ({n}). Ctrl+Z brings them back.": "Selbst gezeichnete Linien des alten Screenshots entfernt ({n}). Strg+Z holt sie zurück.",
+  "App older than the mod": "App älter als die Mod",
+  "The in-game mod is newer than this app, so some data may be missing. Click to download the latest app.": "Die Mod im Spiel ist neuer als diese App, daher könnten Daten fehlen. Klicke, um die neueste App herunterzuladen.",
+  "In-game mod out of date": "Mod im Spiel veraltet",
+  "This export came from an older version of the mod; this app expects revision {rev}. Restart the game so mod.io updates it, or check that you're subscribed. Click to open the mod page.": "Dieser Export stammt von einer älteren Version der Mod; diese App erwartet Revision {rev}. Starte das Spiel neu, damit mod.io sie aktualisiert, oder prüfe, ob du sie abonniert hast. Klicke, um die Mod-Seite zu öffnen.",
+  "Updated from the game: {n} passenger lines": "Aus dem Spiel aktualisiert: {n} Personenlinien",
+  "Imported {n} passenger lines and {b} buildings": "{n} Personenlinien und {b} Gebäude importiert",
+  "Some data could not be read: {err}": "Einige Daten konnten nicht gelesen werden: {err}",
+  "Stop added. It reaches about {n} people no stop reaches today.": "Haltestelle hinzugefügt. Sie erreicht etwa {n} Personen, die heute keine Haltestelle erreicht.",
+  "Where one new stop ({r} m reach, like your other stops) would reach the most people no stop reaches today. Click a spot to zoom to it.": "Wo eine neue Haltestelle ({r} m Reichweite, wie deine anderen) die meisten Personen erreichen würde, die heute keine Haltestelle erreicht. Klicke auf einen Ort, um hinzuzoomen.",
+  "Every home and workplace shown is already reached. Nice work.": "Alle angezeigten Wohnungen und Arbeitsplätze werden schon erreicht. Gute Arbeit.",
+  "Zoom to this spot": "Zu diesem Ort zoomen",
+  "Add stop": "Setzen",
+  "{pax} passenger lines, {cargo} cargo · {st} stations · {b} buildings": "{pax} Personenlinien, {cargo} Fracht · {st} Stationen · {b} Gebäude",
+  "{pct}% of {n} {unit}": "{pct} % von {n} {unit}",
+  "+{n} {unit} with your new stops": "+{n} {unit} mit deinen neuen Haltestellen",
+  "Routes: {a} stretches from vehicles in the game, {b} estimated as the shortest road": "Routen: {a} Abschnitte von Fahrzeugen im Spiel, {b} als kürzester Weg geschätzt",
+  ", {n} drawn straight": ", {n} gerade gezeichnet",
+  ". Re-export later to capture more real routes.": ". Exportiere später erneut, um mehr echte Routen zu erfassen.",
+  "Whole map": "Ganze Karte",
+  "{town} ({n} residents)": "{town} ({n} Einwohner)",
+  "{n} not reached": "{n} nicht erreicht",
+  "{a} of {b} within reach of a stop": "{a} von {b} in Reichweite einer Haltestelle",
+  "Station {n} placed. Now place the other one.": "Station {n} gesetzt. Setze jetzt die andere.",
+  "{goods} consumer": "{goods}-Verbraucher",
+  "All goods": "Alle Güter",
+  "{n} industries need inputs: {a} without a cargo stop, {b} not supplied.": "{n} Industrien brauchen Rohstoffe: {a} ohne Frachthaltestelle, {b} nicht beliefert.",
+  "{n} industries need {good}: {a} without a cargo stop, {b} not supplied.": "{n} Industrien brauchen {good}: {a} ohne Frachthaltestelle, {b} nicht beliefert.",
+  "{n} make it.": "{n} stellen es her.",
+  "{n} buildings want goods: {a} not supplied ({b} out of reach of any cargo stop).": "{n} Gebäude wollen Güter: {a} nicht beliefert ({b} außer Reichweite jeder Frachthaltestelle).",
+  "{n} buildings want {good}: {a} not supplied ({b} out of reach of any cargo stop).": "{n} Gebäude wollen {good}: {a} nicht beliefert ({b} außer Reichweite jeder Frachthaltestelle).",
+  "needs {goods}": "braucht {goods}",
+  "Town {n}": "Stadt {n}",
+  "(industrial)": "(Industrie)",
+  "(commercial)": "(Gewerbe)",
+  "Level {n}": "Stufe {n}",
+  "Needs no inputs": "Braucht keine Rohstoffe",
+  "Needs {good}": "Braucht {good}",
+  "rate {n}": "Rate {n}",
+  "not delivered": "nicht geliefert",
+  "{good} (boosts output)": "{good} (steigert Produktion)",
+  "Makes {good}": "Stellt {good} her",
+  "not producing": "produziert nicht",
+  "Untitled": "Ohne Namen",
+  "drawing": "wird gezeichnet",
+  "1 segment": "1 Abschnitt",
+  "{n} segments, up to the nearest junctions": "{n} Abschnitte, bis zu den nächsten Kreuzungen",
+  "On {name}": "Auf {name}",
+  "Shared by {n} lines: {names}": "Gemeinsam von {n} Linien: {names}",
+  "Stop from the game · reach {r} m": "Haltestelle aus dem Spiel · Reichweite {r} m",
+  "Reaches {a} residents and {b} jobs. New: {c} residents, {d} jobs that no game stop reaches.": "Erreicht {a} Einwohner und {b} Arbeitsplätze. Neu: {c} Einwohner, {d} Arbeitsplätze, die keine Haltestelle im Spiel erreicht.",
+  "Drawing {name}: click to add points · click {name} again to rejoin it · Esc ends this branch · Enter finishes": "Zeichne {name}: Klicken setzt Punkte · erneut auf {name} klicken verbindet · Esc beendet den Abzweig · Enter schließt ab",
+  "Click a point on {name} to draw a branch from it · click elsewhere to start a new line": "Klicke auf einen Punkt von {name}, um dort abzuzweigen · klicke woanders für eine neue Linie",
+  "Click on {name} to branch or extend it · click elsewhere for a new line ({mode})": "Klicke auf {name}, um abzuzweigen oder zu verlängern · klicke woanders für eine neue Linie ({mode})",
+  "Click to start a new line ({mode}). Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein und folgen Straßen (Alt gedrückt halten zum freien Zeichnen).",
+  "Click to start a new line ({mode}). Points snap to stops and lines nearby.": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein.",
+  "Click where {name} is on the screenshot": "Klicke dorthin, wo {name} im Screenshot ist",
+  "Click where the station is on the screenshot": "Klicke dorthin, wo die Station im Screenshot ist",
+  "Click a point on {name} to branch from it, or its end to extend it": "Klicke auf einen Punkt von {name}, um abzuzweigen, oder auf ihr Ende, um sie zu verlängern",
+  "Removed hand-drawn lines ({n}). Ctrl+Z brings them back.": "Selbst gezeichnete Linien entfernt ({n}). Strg+Z holt sie zurück.",
+  "Click again to confirm": "Zum Bestätigen erneut klicken",
+  "Drew {n} lines from the game": "{n} Linien aus dem Spiel gezeichnet",
+  "Reading the game log: {path}": "Lese das Spiellog: {path}",
+  "The game log was not found. Choose stdout.txt from Steam\\userdata\\<id>\\3493540\\local\\crash_dump.": "Das Spiellog wurde nicht gefunden. Wähle die stdout.txt aus Steam\\userdata\\<id>\\3493540\\local\\crash_dump.",
+  " · last update {time}": " · zuletzt aktualisiert {time}",
+  "({n} new)": "({n} neu)",
+  "{n} shown in {town}": "{n} angezeigt in {town}",
+  "this area": "diesem Gebiet",
+  "{n} shown": "{n} angezeigt",
+  "Update available: v{v}": "Update verfügbar: v{v}",
+  "You have v{cur}. Click to download v{v}. Release notes: {url}": "Du hast v{cur}. Klicke, um v{v} herunterzuladen. Versionshinweise: {url}",
+  "Click an industry to see what it needs and makes · squares are industries, triangles are businesses that want goods": "Klicke auf eine Industrie, um zu sehen, was sie braucht und herstellt · Quadrate sind Industrien, Dreiecke sind Betriebe, die Güter wollen",
+  "Settings · your map stays as it is while you change things here": "Einstellungen · deine Karte bleibt unverändert, während du hier etwas änderst",
+  "Drag your planned stops to try other spots · coverage updates as you move them": "Ziehe geplante Haltestellen, um andere Orte zu testen · die Abdeckung aktualisiert sich beim Verschieben",
+  "Click it on the map…": "Auf der Karte anklicken …",
+  "Placed ✓ · move": "Gesetzt ✓ · verschieben",
+  "{goods} factory": "{goods}-Fabrik",
+  "{goods} producer": "{goods}-Erzeuger",
+  "reached by a cargo stop": "von einer Frachthaltestelle erreicht",
+  "no cargo stop reaches it": "keine Frachthaltestelle erreicht sie",
+  "delivered": "geliefert",
+  "optional": "optional",
+  "Stop drawing": "Zeichnen beenden",
+  "Point": "Punkt",
+  "Remove station": "Station entfernen",
+  "No cargo data yet": "Noch keine Frachtdaten",
+  "Your last export has no industries. Copy the export command again in ⚙ Settings (it now includes cargo), run it in the game, and the map updates.": "Dein letzter Export enthält keine Industrien. Kopiere den Exportbefehl erneut in ⚙ Einstellungen (er enthält jetzt Fracht), führe ihn im Spiel aus, dann aktualisiert sich die Karte.",
+  "Passenger lines": "Personenlinien",
+  "Cargo lines": "Frachtlinien",
+  "Expand {name}": "{name} aufklappen",
+  "Collapse {name}": "{name} zuklappen",
+  "Stop added. It reaches no new residents here.": "Haltestelle hinzugefügt. Sie erreicht hier keine neuen Einwohner.",
+  "Click on a line to place a station": "Klicke auf eine Linie, um eine Station zu setzen",
+  "Click on a line to cut that segment": "Klicke auf eine Linie, um diesen Abschnitt zu schneiden",
+  "Screenshot loaded. Pick a mode and click to start a line.": "Screenshot geladen. Wähle ein Verkehrsmittel und klicke, um eine Linie zu beginnen.",
+  "Screenshot loaded. Align the game data to it in the Game data panel.": "Screenshot geladen. Richte die Spieldaten im Bereich Spieldaten daran aus.",
+  "Background replaced. Your lines were kept.": "Hintergrund ersetzt. Deine Linien bleiben erhalten.",
+  "Screenshot loaded": "Screenshot geladen",
+  "That image could not be read. Try a PNG or JPG.": "Das Bild konnte nicht gelesen werden. Versuche ein PNG oder JPG.",
+  "That file is not a Transit Overlay project.": "Diese Datei ist kein Transit-Overlay-Projekt.",
+  "Open a PNG/JPG screenshot, a saved .json project, or the game’s stdout.txt.": "Öffne einen PNG/JPG-Screenshot, ein gespeichertes .json-Projekt oder die stdout.txt des Spiels.",
+  "Project opened": "Projekt geöffnet",
+  "The screenshot inside that project could not be read.": "Der Screenshot in diesem Projekt konnte nicht gelesen werden.",
+  "Save cancelled": "Speichern abgebrochen",
+  "A save prompt is already open": "Ein Speichern-Dialog ist bereits offen",
+  "Saving isn’t available in this view": "Speichern ist in dieser Ansicht nicht möglich",
+  "The image was too large to export.": "Das Bild war zu groß für den Export.",
+  "No image on the clipboard. Copy a screenshot first.": "Kein Bild in der Zwischenablage. Kopiere zuerst einen Screenshot.",
+  "Imported. Align it to your screenshot below, or use the game map.": "Importiert. Richte es unten an deinem Screenshot aus oder nutze die Spielkarte.",
+  "That file could not be read.": "Die Datei konnte nicht gelesen werden.",
+  "Line the game data up with your screenshot first": "Richte die Spieldaten zuerst an deinem Screenshot aus",
+  "Aligned. If lines look flipped, tick Mirror.": "Ausgerichtet. Wenn Linien gespiegelt aussehen, hake Spiegeln an.",
+  "Pick two different stations": "Wähle zwei verschiedene Stationen",
+  "Export command copied. Paste it in the game console.": "Exportbefehl kopiert. Füge ihn in der Spielkonsole ein.",
+  "Press Ctrl+C to copy the selected command": "Drücke Strg+C, um den markierten Befehl zu kopieren",
+  "All lines cleared. Undo brings them back.": "Alle Linien gelöscht. Rückgängig holt sie zurück.",
+  "Showing the map generated from your game": "Zeige die aus deinem Spiel erzeugte Karte",
+  "Started over with a blank map": "Neu begonnen mit leerer Karte",
+  "No export found in the game log yet. Run the export command in the game first.": "Noch kein Export im Spiellog gefunden. Führe zuerst den Exportbefehl im Spiel aus.",
+  "Click to add a stop. It snaps to the nearest road (hold Alt to place it freely) or onto a line.": "Klicke, um eine Haltestelle zu setzen. Sie rastet an der nächsten Straße ein (Alt gedrückt halten zum freien Setzen) oder auf einer Linie.",
+  "Click a point where lines meet to mark a station": "Klicke auf einen Punkt, an dem sich Linien treffen, um eine Station zu markieren",
+  "Click a segment to cut it out of its line. The line splits there; other lines on the same street stay.": "Klicke auf einen Abschnitt, um ihn aus seiner Linie zu schneiden. Die Linie wird dort geteilt; andere Linien auf derselben Straße bleiben.",
+  "Click a segment to select it (Delete cuts it) · drag points to move them · double-click a line to add a bend": "Klicke auf einen Abschnitt, um ihn auszuwählen (Entf schneidet ihn) · ziehe Punkte, um sie zu verschieben · Doppelklick auf eine Linie fügt einen Knick ein",
+  "No export found in that file. Run the export command in the game console first, then import stdout.txt.": "In dieser Datei wurde kein Export gefunden. Führe zuerst den Exportbefehl in der Spielkonsole aus und importiere dann stdout.txt.",
+  "The export in that file is empty. Check the console for errors.": "Der Export in dieser Datei ist leer. Prüfe die Konsole auf Fehler.",
+  "Homes": "Wohnungen",
+  "Businesses": "Gewerbe",
+  "residents": "Einwohner",
+  "jobs": "Arbeitsplätze"
+}};
 const FONT = '"Overpass", system-ui, sans-serif';
 const MODES = {
   subway:{label:'Subway', w:9},
@@ -565,7 +894,7 @@ function cutSegment(lineId, b, i){
   sel = {line:l.id, branch:null, seg:null, node:null};
   hoverSeg = null;
   cleanup(); ui(); draw();
-  toast(lineById(lineId) ? `Cut a segment out of ${l.name}. Undo with Ctrl+Z.` : `${l.name} removed. Undo with Ctrl+Z.`);
+  toast(lineById(lineId) ? T('Cut a segment out of {name}. Undo with Ctrl+Z.', {name:l.name}) : T('{name} removed. Undo with Ctrl+Z.', {name:l.name}));
 }
 function undo(){ if (!hist.u.length) return; hist.r.push(snapshot()); restore(hist.u.pop()); ui(); draw(); }
 function redo(){ if (!hist.r.length) return; hist.u.push(snapshot()); restore(hist.r.pop()); ui(); draw(); }
@@ -741,7 +1070,7 @@ function newLine(mode){
   const used = new Set(S.lines.map(l => l.color.toUpperCase()));
   const color = PALETTE.find(c => !used.has(c.toUpperCase())) || PALETTE[S.lines.length % PALETTE.length];
   const n = S.lines.filter(l => l.mode === mode).length + 1;
-  const l = {id: nid(), name: (activeTab === 'cargo' ? 'Cargo ' : '') + MODES[mode].label + ' ' + n, mode, color, branches: [], oneway: {}, cargo: activeTab === 'cargo'};
+  const l = {id: nid(), name: (activeTab === 'cargo' ? T('Cargo') + ' ' : '') + T(MODES[mode].label) + ' ' + n, mode, color, branches: [], oneway: {}, cargo: activeTab === 'cargo'};
   S.lines.push(l);
   return l;
 }
@@ -1090,7 +1419,7 @@ function drawLegend(g){
     g.textBaseline = 'middle'; g.textAlign = 'left';
     g.font = `800 ${fs}px ${FONT}`; g.fillStyle = STATION_INK; g.fillText(l.name, x+pad+sw+gapx, cy + 1*u);
     const nw = g.measureText(l.name).width;
-    g.font = `600 ${fs2}px ${FONT}`; g.fillStyle = '#5D646D'; g.fillText(MODES[l.mode].label.toUpperCase(), x+pad+sw+gapx+nw+8*u, cy + 1.5*u);
+    g.font = `600 ${fs2}px ${FONT}`; g.fillStyle = '#5D646D'; g.fillText(T(MODES[l.mode].label).toLocaleUpperCase(LOCALE()), x+pad+sw+gapx+nw+8*u, cy + 1.5*u);
   });
 }
 function renderScene(g, screen){
@@ -1274,7 +1603,7 @@ function click(p, e){
         sel = {line:null, branch:null, node:id}; ui(); draw();
         const r = planCoverage().per[id], cov = gameCovered();
         let add = 0; if (r) for (const b of S.game.buildings) if (b[4] === 0 && r.has(b[0]) && !isServed(b, cov)) add += b[3];
-        toast(add ? `This stop would reach ${add} residents no game stop reaches` : 'Stop added. It reaches no new residents here.');
+        toast(add ? T('This stop would reach {n} residents no game stop reaches', {n:add.toLocaleString(LOCALE())}) : 'Stop added. It reaches no new residents here.');
         return;
       }
       sel = {line:null, branch:null, node:null}; ui(); draw(); toast('Click on a line to place a station'); return;
@@ -1322,7 +1651,7 @@ function drawClick(p, e){
   sel = {line:l.id, branch:activeBr, node:null};
   if (rejoin && activeBr.path.length >= 2){
     activeBr = null;
-    toast(`Branch joined ${l.name}. Click the line to add another, or press Enter.`);
+    toast(T('Branch joined {name}. Click the line to add another, or press Enter.', {name:l.name}));
   }
   hover = null; ui(); draw();
 }
@@ -1453,13 +1782,13 @@ async function saveFile(filename, data){
     try {
       const payload = data instanceof Blob ? await data.arrayBuffer() : data;
       const where = await window.desktop.saveFile(filename, payload);
-      toast(where ? 'Saved to ' + where : 'Save cancelled');
-    } catch (err){ toast('Could not save: ' + (err && err.message || err)); }
+      toast(where ? T('Saved to {path}', {path:where}) : 'Save cancelled');
+    } catch (err){ toast(T('Could not save: {err}', {err:(err && err.message || err)})); }
     return;
   }
   const dl = await dlReady;
   if (dl){
-    try { await dl.save({filename, data}); toast('Saved ' + filename); }
+    try { await dl.save({filename, data}); toast(T('Saved {file}', {file:filename})); }
     catch (err){
       const c = err && err.code;
       if (c === 'declined') toast('Save cancelled');
@@ -1668,12 +1997,13 @@ function schemSVG(opts){
   const pad = 36, mapW = x1 - x0, mapH = y1 - y0;
   const title = opts.title || '';
   const head = title ? 54 : 18;
-  const cols = Math.max(1, Math.floor(Math.max(mapW, 520) / 250)), rowsN = Math.ceil(D.lines.length / cols), legH = 22 + rowsN * 22;
+  const cols = Math.max(1, Math.floor(Math.max(mapW, 520) / 270)), rowsN = Math.ceil(D.lines.length / cols), legH = 22 + rowsN * 22;
   const Wt = Math.max(mapW, 520) + pad*2, Ht = head + mapH + pad + legH + 34;
   const ox = pad - x0 + (Wt - pad*2 - mapW) / 2, oy = head + pad/2 - y0;
   const leg = D.lines.map((L, i) => {
     const cx = pad + (i % cols) * ((Wt - pad*2) / cols), cy = head + mapH + pad + 18 + Math.floor(i / cols) * 22;
-    const nm = L.name.length > 30 ? L.name.slice(0, 29) + '…' : L.name;
+    const fit = Math.max(8, Math.floor(((Wt - pad*2) / cols - 50) / 7)); // characters that fit the column
+    const nm = L.name.length > fit ? L.name.slice(0, fit - 1) + '…' : L.name;
     return `<line x1="${cx}" y1="${cy}" x2="${cx + 26}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><text x="${cx + 36}" y="${cy + 4}" font-size="12" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`;
   }).join('');
   const foot = `<text x="${Wt - pad}" y="${Ht - 14}" text-anchor="end" font-size="10.5" fill="${C.muted}">${esc(T('Made with Transit Overlay for Transport Fever 3'))}</text>`;
@@ -2436,7 +2766,7 @@ function useGameMap(){
   let dropped = 0;
   if (fromImage){ dropped = S.lines.filter(l => !l.gameId).length; removeDrawnLines(); }
   buildGameNetwork(); fitNetwork(); ui(); draw();
-  if (dropped) toast(`Removed ${dropped} hand-drawn line${dropped > 1 ? 's' : ''} that belonged to the old screenshot. Ctrl+Z brings them back.`);
+  if (dropped) toast(T('Removed hand-drawn lines that belonged to the old screenshot ({n}). Ctrl+Z brings them back.', {n:dropped}));
 }
 function fitNetwork(){
   if (S.game && S.game.focus != null){ fit(); return; } // the map is cut to the town, so show all of it
@@ -2454,22 +2784,29 @@ const EXPORT_FORMAT = 1, MOD_REVISION = 4; // MOD_REVISION: keep equal to "revis
 const MODIO_URL = 'https://mod.io/g/transportfever3/m/transit-overlay';
 const RELEASE_URL = 'https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest';
 let modNoticeHidden = '';
+let updInfo = null;
+function renderUpd(){
+  const u = updInfo, a = $('#updLink'); if (!u) return;
+  a.textContent = T('Update available: v{v}', {v:u.latest});
+  a.href = u.url;
+  a.title = T('You have v{cur}. Click to download v{v}. Release notes: {url}', {cur:u.current, v:u.latest, url:u.notes});
+}
 function checkSource(src){
   const pill = $('#modPill'), a = $('#modLink');
   let msg = null, tip = '', url = '';
   if (src.format > EXPORT_FORMAT || (src.kind === 'mod' && src.rev > MOD_REVISION)){
-    msg = 'App older than the mod';
-    tip = 'The in-game mod is newer than this app, so some data may be missing. Click to download the latest app.';
+    msg = T('App older than the mod');
+    tip = T('The in-game mod is newer than this app, so some data may be missing. Click to download the latest app.');
     url = RELEASE_URL;
   } else if (src.kind === 'mod' ? src.rev < MOD_REVISION : src.kind == null){
-    msg = 'In-game mod out of date';
-    tip = `This export came from an older version of the mod${src.rev ? ' (revision ' + src.rev + ')' : ''}; this app expects revision ${MOD_REVISION}. Restart the game so mod.io updates it, or check that you're subscribed. Click to open the mod page.`;
+    msg = T('In-game mod out of date');
+    tip = T('This export came from an older version of the mod; this app expects revision {rev}. Restart the game so mod.io updates it, or check that you\'re subscribed. Click to open the mod page.', {rev:MOD_REVISION});
     url = MODIO_URL;
   }
-  if (!msg || modNoticeHidden === msg){ pill.hidden = true; return; }
+  if (!msg || modNoticeHidden === url){ pill.hidden = true; return; }
   a.textContent = msg; a.title = tip; a.href = url; pill.hidden = false;
 }
-$('#modClose').addEventListener('click', () => { modNoticeHidden = $('#modLink').textContent; $('#modPill').hidden = true; });
+$('#modClose').addEventListener('click', () => { modNoticeHidden = $('#modLink').getAttribute('href'); $('#modPill').hidden = true; });
 
 function importGame(text){
   let G;
@@ -2497,13 +2834,13 @@ function importGame(text){
   if (S.settings.coverage == null) S.settings.coverage = 'gaps';
   const nPax = G.lines.filter(isPax).length;
   if (bg.kind === 'image'){
-    if (prev && prev.align && prev.xf && prev.xf.kind === 'align'){ G.align = prev.align; computeAlign(); buildGameNetwork(); toast(`Updated from game: ${nPax} passenger lines`); }
+    if (prev && prev.align && prev.xf && prev.xf.kind === 'align'){ G.align = prev.align; computeAlign(); buildGameNetwork(); toast(T('Updated from the game: {n} passenger lines', {n:nPax})); }
     else toast('Imported. Align it to your screenshot below, or use the game map.');
   } else {
     useGameMap();
-    toast(`Imported ${nPax} passenger lines and ${G.buildings.length} buildings`);
+    toast(T('Imported {n} passenger lines and {b} buildings', {n:nPax, b:G.buildings.length.toLocaleString(LOCALE())}));
   }
-  if (G.errors.length) toast('Some data could not be read: ' + G.errors[0]);
+  if (G.errors.length) toast(T('Some data could not be read: {err}', {err:G.errors[0]}));
   ui(); draw();
 }
 function readGameFile(file){
@@ -2669,7 +3006,7 @@ function gameUI(){
   if (!G){ $('#covSec').hidden = true; $('#topAreaWrap').hidden = true; return; }
   if ($('#gA1').options.length !== Object.keys(G.groups).length) fillAlignSelects();
   const pax = G.lines.filter(isPax).length, cargo = G.lines.length - pax;
-  $('#gSummary').textContent = `${pax} passenger lines, ${cargo} cargo · ${Object.keys(G.groups).length} stations · ${G.buildings.length.toLocaleString(LOCALE())} buildings`;
+  $('#gSummary').textContent = T('{pax} passenger lines, {cargo} cargo · {st} stations · {b} buildings', {pax, cargo, st:Object.keys(G.groups).length, b:G.buildings.length.toLocaleString(LOCALE())});
   const tot = catTotals(), types = covTypes();
   const cs = $('#gCats'); cs.textContent = '';
   CATS.forEach((c, i) => {
@@ -2677,11 +3014,11 @@ function gameUI(){
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!types[i]; cb.id = 'gT' + i;
     cb.addEventListener('change', () => { const t = covTypes().slice(); t[i] = cb.checked; S.settings.covTypes = t; ui(); draw(); });
     const sw = document.createElement('span'); sw.className = 'cat-sw s' + i; sw.style.background = c.color;
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = c.label;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = T(c.label);
     const v = tot[i], pct = v.people ? Math.round(v.served / v.people * 100) : 0;
-    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${pct}% of ${v.people.toLocaleString(LOCALE())} ${c.unit}`;
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = T('{pct}% of {n} {unit}', {pct, n:v.people.toLocaleString(LOCALE()), unit:T(c.unit)});
     row.append(cb, sw, nm, num);
-    if (v.planned){ const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = `+${v.planned.toLocaleString(LOCALE())} ${c.unit} with your new stops`; row.append(pl); }
+    if (v.planned){ const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = T('+{n} {unit} with your new stops', {n:v.planned.toLocaleString(LOCALE()), unit:T(c.unit)}); row.append(pl); }
     cs.append(row);
   });
   const ri = G.routeInfo;
@@ -2690,14 +3027,14 @@ function gameUI(){
   $('#gRoads').checked = S.settings.roads !== false;
   $('#gRouteInfo').hidden = !ri;
   if (ri){ const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-    $('#gRouteInfo').textContent = `Routes: ${pl(ri.fromGame || 0, 'stretch')} from vehicles in the game, ${ri.routed} estimated as the shortest road` + (ri.straight ? `, ${ri.straight} drawn straight` : '') + '. Re-export later to capture more real routes.'.replace('stretchs', 'stretches'); }
+    $('#gRouteInfo').textContent = T('Routes: {a} stretches from vehicles in the game, {b} estimated as the shortest road', {a:ri.fromGame || 0, b:ri.routed}) + (ri.straight ? T(', {n} drawn straight', {n:ri.straight}) : '') + T('. Re-export later to capture more real routes.'); }
   const needsAlign = bg.kind === 'image' && !(G.xf && G.xf.kind === 'align');
   $('#gAlign').hidden = bg.kind !== 'image';
   $('#gAlignHint').hidden = !needsAlign;
   $('#gMirror').checked = !!(G.align && G.align.mirror);
   const A = G.align || {};
-  $('#gP1').textContent = alignPick === 1 ? 'Click it on the map…' : (A.p1 ? 'Placed ✓ · move' : 'Click it on the map');
-  $('#gP2').textContent = alignPick === 2 ? 'Click it on the map…' : (A.p2 ? 'Placed ✓ · move' : 'Click it on the map');
+  $('#gP1').textContent = T(alignPick === 1 ? 'Click it on the map…' : (A.p1 ? 'Placed ✓ · move' : 'Click it on the map'));
+  $('#gP2').textContent = T(alignPick === 2 ? 'Click it on the map…' : (A.p2 ? 'Placed ✓ · move' : 'Click it on the map'));
   $('#gSnap').checked = S.settings.roadSnap !== false;
   $('#gSnap').disabled = !(G.edges && G.edges.length);
   $('#gColors').checked = !!S.settings.gameColors;
@@ -2712,9 +3049,9 @@ function gameUI(){
   if (areaSel.dataset.n !== String(G.at)){
     areaSel.textContent = '';
     const pop = {}; G.buildings.forEach(b => { if (b[4] === 0) pop[b[5]] = (pop[b[5]] || 0) + b[3]; });
-    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Whole map'; areaSel.append(o0);
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = T('Whole map'); areaSel.append(o0);
     Object.keys(G.towns).sort((a, b) => (pop[b] || 0) - (pop[a] || 0)).forEach(k => {
-      const o = document.createElement('option'); o.value = k; o.textContent = `${G.towns[k]} (${(pop[k] || 0).toLocaleString(LOCALE())} residents)`; areaSel.append(o);
+      const o = document.createElement('option'); o.value = k; o.textContent = T('{town} ({n} residents)', {town:G.towns[k], n:(pop[k] || 0).toLocaleString(LOCALE())}); areaSel.append(o);
     });
     areaSel.dataset.n = String(G.at);
   }
@@ -2730,11 +3067,11 @@ function gameUI(){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'town-row';
     const p = r.people ? Math.round(r.served / r.people * 100) : 0;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
-    const num = document.createElement('span'); num.className = 'num'; num.textContent = `${(r.people - r.served).toLocaleString(LOCALE())} not reached`;
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = T('{n} not reached', {n:(r.people - r.served).toLocaleString(LOCALE())});
     const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = p + '%'; bar.append(fill);
     const pc = document.createElement('span'); pc.className = 'pc'; pc.textContent = p + '%';
     b.append(nm, num, bar, pc);
-    b.title = `${r.served} of ${r.people} within reach of a stop`;
+    b.title = T('{a} of {b} within reach of a stop', {a:r.served.toLocaleString(LOCALE()), b:r.people.toLocaleString(LOCALE())});
     b.addEventListener('click', () => {
       if (!G.xf){ toast('Line the game data up with your screenshot first'); return; }
       fitWorldBox(G.buildings.filter(x => x[5] === r.id).map(x => W2I(x[1], x[2])));
@@ -2750,7 +3087,7 @@ function alignClick(p){
   if (S.game.align.p1 && S.game.align.p2){
     if (computeAlign()){ commit(); buildGameNetwork(); toast('Aligned. If lines look flipped, tick Mirror.'); }
     else toast('Pick two different stations');
-  } else toast(`Station ${which} placed. Now place the other one.`);
+  } else toast(T('Station {n} placed. Now place the other one.', {n:which}));
   ui(); draw();
 }
 function copyExportCmd(){
@@ -2815,9 +3152,9 @@ function cargoReach(){
 function industryLabel(ind, st){
   if (ind.name) return ind.name;
   const outs = st.outputs.map(o => cargoName(o.cargo));
-  if (outs.length) return outs.join(' + ') + (st.req.length ? ' factory' : ' producer');
-  if (st.req.length) return st.req.map(s => cargoName(s.cargo)).join(' + ') + ' consumer';
-  return 'Industry';
+  if (outs.length) return T(st.req.length ? '{goods} factory' : '{goods} producer', {goods:outs.join(' + ')});
+  if (st.req.length) return T('{goods} consumer', {goods:st.req.map(s => cargoName(s.cargo)).join(' + ')});
+  return T('Industry');
 }
 function industryState(ind){
   const st = stockStatus(ind), reached = cargoReach().has(ind.id), c = goodSel();
@@ -2912,7 +3249,7 @@ function cargoUI(){
   const gs = $('#cGood'), gopts = ['all', ...[...goods].sort((a, b) => cargoName(a).localeCompare(cargoName(b)))];
   if (gs.dataset.sig !== gopts.join(',')){
     gs.textContent = ''; gs.dataset.sig = gopts.join(',');
-    gopts.forEach(v => { const o = document.createElement('option'); o.value = String(v); o.textContent = v === 'all' ? 'All goods' : cargoName(v); gs.append(o); });
+    gopts.forEach(v => { const o = document.createElement('option'); o.value = String(v); o.textContent = v === 'all' ? T('All goods') : cargoName(v); gs.append(o); });
   }
   const c = goodSel();
   if (c != null && !goods.has(c)){ S.settings.cargoGood = 'all'; }
@@ -2923,9 +3260,9 @@ function cargoUI(){
   const unreached = inds.filter(x => x.s.level === 'unreached').length, missing = inds.filter(x => x.s.level === 'missing').length;
   const biz = bizInView().map(([b, s]) => bizState(b, s)).filter(x => x.wants);
   const bizNone = biz.filter(x => !x.supplied).length, bizNoStop = biz.filter(x => !x.supplied && !x.reached).length;
-  const gname = goodSel() == null ? 'goods' : cargoName(goodSel()).toLowerCase();
-  const indTxt = S.settings.cargoInd === false ? '' : `${inds.length} industries need ${gname === 'goods' ? 'inputs' : gname}: ${unreached} without a cargo stop, ${missing} not supplied.` + (goodSel() != null ? ` ${srcN} make it.` : '') + ' ';
-  $('#cSummary').textContent = indTxt + `${biz.length.toLocaleString(LOCALE())} buildings want ${gname}: ${bizNone.toLocaleString(LOCALE())} not supplied (${bizNoStop.toLocaleString(LOCALE())} out of reach of any cargo stop).`;
+  const gname = goodSel() == null ? null : cargoName(goodSel());
+  const indTxt = S.settings.cargoInd === false ? '' : (gname == null ? T('{n} industries need inputs: {a} without a cargo stop, {b} not supplied.', {n:inds.length, a:unreached, b:missing}) : T('{n} industries need {good}: {a} without a cargo stop, {b} not supplied.', {n:inds.length, good:gname, a:unreached, b:missing}) + ' ' + T('{n} make it.', {n:srcN})) + ' ';
+  $('#cSummary').textContent = indTxt + T(gname == null ? '{n} buildings want goods: {a} not supplied ({b} out of reach of any cargo stop).' : '{n} buildings want {good}: {a} not supplied ({b} out of reach of any cargo stop).', {n:biz.length.toLocaleString(LOCALE()), good:gname, a:bizNone.toLocaleString(LOCALE()), b:bizNoStop.toLocaleString(LOCALE())});
   const list = $('#cList'); list.textContent = '';
   (S.settings.cargoInd === false ? [] : inds).filter(x => x.s.level !== 'ok').sort((a, b) => (a.s.level === 'unreached') - (b.s.level === 'unreached') || b.i.level - a.i.level).slice(0, 12).forEach(({i, s}) => {
     const row = document.createElement('button'); row.type = 'button'; row.className = 'ind-row';
@@ -2933,8 +3270,8 @@ function cargoUI(){
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = industryLabel(i, s.st);
     const why = document.createElement('span'); why.className = 'why';
     const parts = [];
-    if (s.st.missing.length) parts.push('needs ' + s.st.missing.map(x => cargoName(x.cargo).toLowerCase()).join(', '));
-    if (!s.reached) parts.push('no cargo stop');
+    if (s.st.missing.length) parts.push(T('needs {goods}', {goods:s.st.missing.map(x => cargoName(x.cargo)).join(', ')}));
+    if (!s.reached) parts.push(T('no cargo stop'));
     why.textContent = parts.join(' · ');
     row.append(sw, nm, why);
     row.addEventListener('click', () => { sel_ind = i.id; const q = W2I(i.x, i.y); fitWorldBox([{x:q.x - 200*pxPerM(), y:q.y - 200*pxPerM()}, {x:q.x + 200*pxPerM(), y:q.y + 200*pxPerM()}]); ui(); draw(); });
@@ -2951,12 +3288,12 @@ function cargoUI(){
     for (const lu of [1, 2]){ if (!bizShown(lu === 2 ? 'tind' : 'com')) continue; (d[lu] || []).forEach(x => { if (goodSel() == null || x.cargo === goodSel()) rows.push({...x, lu}); }); }
     if (!rows.length) continue;
     any = true;
-    const h = document.createElement('div'); h.className = 'dem-town'; h.textContent = G.towns[t] || ('Town ' + t); dem.append(h);
+    const h = document.createElement('div'); h.className = 'dem-town'; h.textContent = G.towns[t] || T('Town {n}', {n:t}); dem.append(h);
     rows.sort((a, b) => b.limit - a.limit).forEach(x => {
       const r = document.createElement('div'); r.className = 'dem-row';
       const pct = x.limit > 0 ? Math.min(100, Math.round(x.supply / x.limit * 100)) : 0;
       r.innerHTML = '<span class="nm"></span><span class="bar"><i></i></span><span class="num"></span>';
-      r.querySelector('.nm').textContent = cargoName(x.cargo) + (x.lu === 2 ? ' (industrial)' : ' (commercial)');
+      r.querySelector('.nm').textContent = cargoName(x.cargo) + ' ' + T(x.lu === 2 ? '(industrial)' : '(commercial)');
       r.querySelector('i').style.width = pct + '%';
       r.querySelector('.num').textContent = `${Math.round(x.supply)} / ${Math.round(x.limit)}`;
       dem.append(r);
@@ -2968,13 +3305,13 @@ function cargoUI(){
   if (!ind){ $('#indPanel').hidden = true; return; }
   const s = industryState(ind);
   $('#indTitle').textContent = industryLabel(ind, s.st);
-  $('#indMeta').textContent = `Level ${ind.level} · ` + (s.reached ? 'reached by a cargo stop' : 'no cargo stop reaches it');
+  $('#indMeta').textContent = T('Level {n}', {n:ind.level}) + ' · ' + T(s.reached ? 'reached by a cargo stop' : 'no cargo stop reaches it');
   const io = $('#indIO'); io.textContent = '';
   const line = (txt, ok, note) => { const r = document.createElement('div'); r.className = 'io-row ' + (ok ? 'ok' : 'no'); const m = document.createElement('span'); m.className = 'mk'; m.textContent = ok ? '✓' : '✗'; const t = document.createElement('span'); t.textContent = txt; r.append(m, t); if (note){ const n = document.createElement('span'); n.className = 'note'; n.textContent = note; r.append(n); } io.append(r); };
-  if (!s.st.req.length) line('Needs no inputs', true);
-  s.st.req.forEach(x => line('Needs ' + cargoName(x.cargo), x.cf > 0, x.cf > 0 ? `rate ${x.cf.toFixed(0)}` : 'not delivered'));
-  s.st.opt.forEach(x => line(cargoName(x.cargo) + ' (boosts output)', x.cf > 0, x.cf > 0 ? 'delivered' : 'optional'));
-  s.st.outputs.forEach(o => line('Makes ' + cargoName(o.cargo), o.rate > 0, o.rate > 0 ? `rate ${o.rate.toFixed(0)}` : 'not producing'));
+  if (!s.st.req.length) line(T('Needs no inputs'), true);
+  s.st.req.forEach(x => line(T('Needs {good}', {good:cargoName(x.cargo)}), x.cf > 0, x.cf > 0 ? T('rate {n}', {n:x.cf.toFixed(0)}) : T('not delivered')));
+  s.st.opt.forEach(x => line(T('{good} (boosts output)', {good:cargoName(x.cargo)}), x.cf > 0, T(x.cf > 0 ? 'delivered' : 'optional')));
+  s.st.outputs.forEach(o => line(T('Makes {good}', {good:cargoName(o.cargo)}), o.rate > 0, o.rate > 0 ? T('rate {n}', {n:o.rate.toFixed(0)}) : T('not producing')));
 }
 /* ---------- side panel ---------- */
 function swatch(l){
@@ -3006,9 +3343,9 @@ function ui(){
   VL().forEach(l => {
     const b = document.createElement('button'); b.className = 'line-row'; b.type = 'button';
     b.setAttribute('aria-current', l.id === sel.line);
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.name || 'Untitled';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.name || T('Untitled');
     const tg = document.createElement('span'); tg.className = 'tag' + (l.id === activeLine ? ' live' : '');
-    tg.textContent = l.id === activeLine ? 'drawing' : MODES[l.mode].label + (l.branches.length > 1 && !l.gameId ? ' · ' + l.branches.length + ' br' : '');
+    tg.textContent = l.id === activeLine ? T('drawing') : T(MODES[l.mode].label) + (l.branches.length > 1 && !l.gameId ? ' · ' + l.branches.length + ' br' : '');
     b.append(swatch(l), nm, tg);
     b.addEventListener('click', () => {
       if (activeLine != null && activeLine !== l.id) finishLine(false);
@@ -3022,12 +3359,12 @@ function ui(){
   $('#linePanel').hidden = !l;
   if (l){
     setVal($('#lnName'), l.name); setVal($('#lnMode'), l.mode); setVal($('#lnColor'), l.color);
-    $('#lnCont').textContent = l.id === activeLine ? 'Stop drawing' : 'Draw branch';
+    $('#lnCont').textContent = T(l.id === activeLine ? 'Stop drawing' : 'Draw branch');
     const r = selRun();
     $('#brBox').hidden = !r;
     if (r){
       const n = r.chain.length - 1, on = runIsOneway(l, r.chain);
-      $('#brInfo').textContent = n === 1 ? '1 segment' : `${n} segments, up to the nearest junctions`;
+      $('#brInfo').textContent = n === 1 ? T('1 segment') : T('{n} segments, up to the nearest junctions', {n});
       $('#brOne').checked = on;
       $('#brRev').hidden = !on;
       $('#brDel').hidden = l.branches.length < 2;
@@ -3038,22 +3375,22 @@ function ui(){
   if (n != null){
     const st = S.stations[n];
     const names = S.lines.filter(x => lineHasNode(x, n)).map(x => x.name);
-    $('#ptTitle').textContent = st ? 'Station' : 'Point';
-    $('#ptInfo').textContent = names.length === 1 ? 'On ' + names[0] : 'Shared by ' + names.length + ' lines: ' + names.join(', ');
+    $('#ptTitle').textContent = T(st ? 'Station' : 'Point');
+    $('#ptInfo').textContent = names.length === 1 ? T('On {name}', {name:names[0]}) : T('Shared by {n} lines: {names}', {n:names.length, names:names.join(', ')});
     $('#stFields').hidden = !st;
-    $('#stToggle').textContent = st ? 'Remove station' : 'Mark as station';
+    $('#stToggle').textContent = T(st ? 'Remove station' : 'Mark as station');
     if (st){ setVal($('#stName'), st.name); setVal($('#stSide'), st.side || 'auto'); $('#stBadges').checked = st.badges !== false; }
     $('#stBadgesRow').hidden = names.length < 2;
     const planning = !!(st && S.game && S.game.xf);
     $('#stRadiusRow').hidden = !planning || st.game; $('#stReach').hidden = !planning;
     if (planning){
-      if (st.game) $('#stReach').textContent = `Stop from the game · reach ${st.r || '?'} m`;
+      if (st.game) $('#stReach').textContent = T('Stop from the game · reach {r} m', {r:st.r || '?'});
       else {
         setVal($('#stRadius'), st.radius || 160);
         const mine = planCoverage().per[n] || new Set(), cov = gameCovered();
         const add = [0, 0, 0], tot = [0, 0, 0];
         for (const b of S.game.buildings){ if (!mine.has(b[0]) || !CATS[b[4]]) continue; tot[b[4]] += b[3]; if (!isServed(b, cov)) add[b[4]] += b[3]; }
-        $('#stReach').textContent = `Reaches ${tot[0]} residents and ${tot[1] + tot[2]} jobs. New: ${add[0]} residents, ${add[1] + add[2]} jobs that no game stop reaches.`;
+        $('#stReach').textContent = T('Reaches {a} residents and {b} jobs. New: {c} residents, {d} jobs that no game stop reaches.', {a:tot[0], b:tot[1] + tot[2], c:add[0], d:add[1] + add[2]});
       }
     }
   }
@@ -3067,16 +3404,17 @@ function ui(){
   const sl = sel.line != null ? lineById(sel.line) : null;
   let h;
   if (tool === 'draw'){
-    if (al && activeBr) h = `Drawing ${al.name}: click to add points · click ${al.name} again to rejoin it · Esc ends this branch · Enter finishes`;
-    else if (al) h = `Click a point on ${al.name} to draw a branch from it · click elsewhere to start a new line`;
-    else if (sl) h = `Click on ${sl.name} to branch or extend it · click elsewhere for a new ${MODES[newMode].label.toLowerCase()} line`;
-    else h = `Click to start a new ${MODES[newMode].label.toLowerCase()} line. Points snap to stops and lines nearby${roadSnapOn(newMode) ? ', and follow roads (hold Alt to draw freely)' : ''}.`;
+    const md = T(MODES[newMode].label);
+    if (al && activeBr) h = T('Drawing {name}: click to add points · click {name} again to rejoin it · Esc ends this branch · Enter finishes', {name:al.name});
+    else if (al) h = T('Click a point on {name} to draw a branch from it · click elsewhere to start a new line', {name:al.name});
+    else if (sl) h = T('Click on {name} to branch or extend it · click elsewhere for a new line ({mode})', {name:sl.name, mode:md});
+    else h = T(roadSnapOn(newMode) ? 'Click to start a new line ({mode}). Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).' : 'Click to start a new line ({mode}). Points snap to stops and lines nearby.', {mode:md});
   }
   else if (tool === 'station') h = (S.game && S.game.xf) ? 'Click to add a stop. It snaps to the nearest road (hold Alt to place it freely) or onto a line.' : 'Click a point where lines meet to mark a station';
   else if (tool === 'cut') h = 'Click a segment to cut it out of its line. The line splits there; other lines on the same street stay.';
   else h = 'Click a segment to select it (Delete cuts it) · drag points to move them · double-click a line to add a bend';
-  if (alignPick && S.game){ const s2 = S.game.groups[$(alignPick === 1 ? '#gA1' : '#gA2').value]; h = `Click where ${s2 ? s2.name : 'the station'} is on the screenshot`; }
-  $('#hint').textContent = h;
+  if (alignPick && S.game){ const s2 = S.game.groups[$(alignPick === 1 ? '#gA1' : '#gA2').value]; h = s2 ? T('Click where {name} is on the screenshot', {name:s2.name}) : T('Click where the station is on the screenshot'); }
+  $('#hint').textContent = T(h);
   autosave();
 }
 
@@ -3094,6 +3432,8 @@ $('#fileIn').addEventListener('change', e => { readFile(e.target.files[0]); e.ta
 $('#saveProj').addEventListener('click', () => { finishLine(false); saveFile('transit-project.json', JSON.stringify(projectObj())); });
 $('#exportBtn').addEventListener('click', exportPNG);
 $('#schemBtn').addEventListener('click', openSchematic);
+$('#setLang').value = LANG;
+$('#setLang').addEventListener('change', e => setLang(e.target.value));
 ['#scLayout', '#scStyle', '#scNames', '#scPlanned'].forEach(id => $(id).addEventListener('change', schemPreview));
 $('#scTitle').addEventListener('input', () => { clearTimeout(schemPreview.t); schemPreview.t = setTimeout(schemPreview, 250); });
 $('#scPng').addEventListener('click', () => schemSave('png'));
@@ -3113,7 +3453,7 @@ $('#lnCont').addEventListener('click', () => {
   const l = curLine(); if (!l) return;
   if (activeLine === l.id){ finishLine(false); return; }
   finishLine(false); tool = 'draw'; activeLine = l.id; activeBr = null; sel = {line:l.id, branch:null, node:null}; ui(); draw();
-  toast(`Click a point on ${l.name} to branch from it, or its end to extend it`);
+  toast(T('Click a point on {name} to branch from it, or its end to extend it', {name:l.name}));
 });
 $('#lnDel').addEventListener('click', () => { if (sel.line != null){ sel.node = null; sel.branch = null; sel.seg = null; deleteSelection(); } });
 $('#segCut').addEventListener('click', () => { if (sel.branch && sel.seg != null) cutSegment(sel.line, sel.branch, sel.seg); });
@@ -3172,12 +3512,12 @@ $('#vRotR').addEventListener('click', e => setRotation((S.game && S.game.rot || 
 $('#vRot').addEventListener('click', () => setRotation(0));
 $('#gArea').addEventListener('change', e => { if (!S.game) return; commit(); S.game.focus = e.target.value === '' ? null : +e.target.value; useGameMap(); });
 $('#gRoads').addEventListener('change', e => { S.settings.roads = e.target.checked; if (S.game && S.game.xf){ commit(); buildGameNetwork(); } ui(); draw(); });
-$('#gDrawn').addEventListener('click', () => { const n = S.lines.filter(l => !l.gameId).length; if (!n) return; commit(); removeDrawnLines(); ui(); draw(); toast(`Removed ${n} hand-drawn line${n > 1 ? 's' : ''}. Ctrl+Z brings them back.`); });
+$('#gDrawn').addEventListener('click', () => { const n = S.lines.filter(l => !l.gameId).length; if (!n) return; commit(); removeDrawnLines(); ui(); draw(); toast(T('Removed hand-drawn lines ({n}). Ctrl+Z brings them back.', {n})); });
 let startOverArmed = 0;
 $('#startOver').addEventListener('click', e => {
   const b = e.currentTarget;
-  if (!startOverArmed){ startOverArmed = setTimeout(() => { startOverArmed = 0; b.textContent = 'Start over'; }, 3000); b.textContent = 'Click again to confirm'; return; }
-  clearTimeout(startOverArmed); startOverArmed = 0; b.textContent = 'Start over';
+  if (!startOverArmed){ startOverArmed = setTimeout(() => { startOverArmed = 0; b.textContent = T('Start over'); }, 3000); b.textContent = T('Click again to confirm'); return; }
+  clearTimeout(startOverArmed); startOverArmed = 0; b.textContent = T('Start over');
   try { localStorage.removeItem(KEY); } catch {}
   covCache = null; graphCache = null; alignPick = null;
   loadExample(); S.nodes = {}; S.lines = []; S.stations = {}; fit(); ui(); draw(); toast('Started over with a blank map');
@@ -3193,7 +3533,7 @@ $('#gReach').addEventListener('change', e => { S.settings.reach = e.target.value
 $('#gRadii').addEventListener('change', e => { S.settings.radii = e.target.value; autosave(); draw(); });
 $('#gSnap').addEventListener('change', e => { S.settings.roadSnap = e.target.checked; autosave(); draw(); });
 $('#gColors').addEventListener('change', e => { S.settings.gameColors = e.target.checked; if (S.game && S.game.xf){ commit(); buildGameNetwork(); } ui(); draw(); });
-$('#gRebuild').addEventListener('click', () => { if (!S.game || !S.game.xf) return; commit(); buildGameNetwork(); fitNetwork(); ui(); draw(); toast(`Drew ${S.lines.filter(l => l.gameId).length} lines from the game`); });
+$('#gRebuild').addEventListener('click', () => { if (!S.game || !S.game.xf) return; commit(); buildGameNetwork(); fitNetwork(); ui(); draw(); toast(T('Drew {n} lines from the game', {n:S.lines.filter(l => l.gameId).length})); });
 $('#gHeat').addEventListener('change', e => { S.settings.gapHeat = e.target.checked; draw(); autosave(); });
 $('#gCov').addEventListener('change', e => { S.settings.coverage = e.target.value; ui(); draw(); });
 
@@ -3204,8 +3544,8 @@ async function deskRefresh(){
   deskInfo = await window.desktop.getLogInfo();
   $('#gDesk').hidden = false;
   $('#gDeskPath').title = deskInfo.path || '';
-  $('#gDeskPath').textContent = deskInfo.path ? `Reading the game log: …\\${deskInfo.path.split(/[\\/]/).slice(-3).join('\\')}` : 'The game log was not found. Choose stdout.txt from Steam\\userdata\\<id>\\3493540\\local\\crash_dump.';
-  if (deskLastAt) $('#gDeskPath').textContent += ` · last update ${deskLastAt.toLocaleTimeString('sv-SE')}`;
+  $('#gDeskPath').textContent = deskInfo.path ? T('Reading the game log: {path}', {path:'…\\' + deskInfo.path.split(/[\\/]/).slice(-3).join('\\')}) : T('The game log was not found. Choose stdout.txt from Steam\\userdata\\<id>\\3493540\\local\\crash_dump.');
+  if (deskLastAt) $('#gDeskPath').textContent += T(' · last update {time}', {time:deskLastAt.toLocaleTimeString('sv-SE')});
   $('#gLive').checked = !!deskInfo.watching;
   $('#gLive').disabled = !deskInfo.path;
   $('#gDeskImport').disabled = !deskInfo.path;
@@ -3224,8 +3564,8 @@ if (window.desktop){
     deskLastAt = new Date();
     const pax = S.game.lines.filter(isPax).length, shown = S.lines.filter(l => l.gameId).length;
     const diff = S.game.lines.length - before;
-    let msg = `Updated from the game: ${pax} passenger lines` + (diff > 0 ? ` (${diff} new)` : '');
-    if (shown < pax) msg += S.game.focus != null ? ` · ${shown} shown in ${S.game.towns[S.game.focus] || 'this area'}` : ` · ${shown} shown`;
+    let msg = T('Updated from the game: {n} passenger lines', {n:pax}) + (diff > 0 ? ' ' + T('({n} new)', {n:diff}) : '');
+    if (shown < pax) msg += S.game.focus != null ? ' · ' + T('{n} shown in {town}', {n:shown, town:S.game.towns[S.game.focus] || T('this area')}) : ' · ' + T('{n} shown', {n:shown});
     toast(msg);
     deskRefresh();
   });
@@ -3237,10 +3577,7 @@ if (window.desktop){
     if (!u) return;
     let hidden = null; try { hidden = localStorage.getItem('tfo-upd-hidden'); } catch {}
     if (hidden === u.latest) return;
-    const a = $('#updLink');
-    a.textContent = `Update available: v${u.latest}`;
-    a.href = u.url;
-    a.title = `You have v${u.current}. Click to download v${u.latest}. Release notes: ${u.notes}`;
+    updInfo = u; renderUpd();
     $('#updPill').hidden = false;
     $('#updClose').addEventListener('click', () => { $('#updPill').hidden = true; try { localStorage.setItem('tfo-upd-hidden', u.latest); } catch {} });
   }).catch(() => {});
@@ -3266,13 +3603,13 @@ function tabUI(){
   $('#histGrp').hidden = activeTab === 'settings';
   const hasGame = !!S.game;
   $('#noGameSec').hidden = hasGame && !(activeTab === 'cargo' && !(S.game.industries && S.game.industries.length));
-  $('#noGameTitle').textContent = hasGame ? 'No cargo data yet' : 'Needs game data';
-  $('#noGameText').textContent = hasGame ? 'Your last export has no industries. Copy the export command again in ⚙ Settings (it now includes cargo), run it in the game, and the map updates.' : 'Coverage and cargo come from your Transport Fever 3 save. Open ⚙ Settings → Game connection to import it.';
-  if (activeTab === 'cargo' && !alignPick) $('#hint').textContent = 'Click an industry to see what it needs and makes · squares are industries, triangles are businesses that want goods';
-  else if (activeTab === 'settings') $('#hint').textContent = 'Settings · your map stays as it is while you change things here';
-  else if (activeTab === 'coverage' && tool === 'edit') $('#hint').textContent = 'Drag your planned stops to try other spots · coverage updates as you move them';
+  $('#noGameTitle').textContent = T(hasGame ? 'No cargo data yet' : 'Needs game data');
+  $('#noGameText').textContent = T(hasGame ? 'Your last export has no industries. Copy the export command again in ⚙ Settings (it now includes cargo), run it in the game, and the map updates.' : 'Coverage and cargo come from your Transport Fever 3 save. Open ⚙ Settings → Game connection to import it.');
+  if (activeTab === 'cargo' && !alignPick) $('#hint').textContent = T('Click an industry to see what it needs and makes · squares are industries, triangles are businesses that want goods');
+  else if (activeTab === 'settings') $('#hint').textContent = T('Settings · your map stays as it is while you change things here');
+  else if (activeTab === 'coverage' && tool === 'edit') $('#hint').textContent = T('Drag your planned stops to try other spots · coverage updates as you move them');
   $('#linesCargoRow').hidden = activeTab !== 'lines' || !S.lines.some(l => l.cargo);
-  const lh = document.querySelector('section[data-key="lines"] h2'); if (lh) lh.textContent = activeTab === 'coverage' ? 'Passenger lines' : activeTab === 'cargo' ? 'Cargo lines' : 'Lines';
+  const lh = document.querySelector('section[data-key="lines"] h2'); if (lh) lh.textContent = T(activeTab === 'coverage' ? 'Passenger lines' : activeTab === 'cargo' ? 'Cargo lines' : 'Lines');
   $('#linesCargo').checked = !!S.settings.linesShowCargo;
   $('#glSec').hidden = !hasGame;
   // live chip
@@ -3303,14 +3640,48 @@ $('#linesCargo').addEventListener('change', e => { S.settings.linesShowCargo = e
     const key = sec.dataset.key, head = document.createElement('div'); head.className = 'sec-head';
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'sec-tog';
     h.replaceWith(head); head.append(h, btn);
-    const apply = () => { const c = closed.has(key); sec.classList.toggle('collapsed', c); btn.textContent = c ? '+' : '−'; btn.setAttribute('aria-expanded', String(!c)); btn.setAttribute('aria-label', (c ? 'Expand ' : 'Collapse ') + h.textContent); };
+    const apply = () => { const c = closed.has(key); sec.classList.toggle('collapsed', c); btn.textContent = c ? '+' : '−'; btn.setAttribute('aria-expanded', String(!c)); btn.setAttribute('aria-label', T(c ? 'Expand {name}' : 'Collapse {name}', {name:h.textContent})); };
     head.addEventListener('click', () => { closed.has(key) ? closed.delete(key) : closed.add(key); save(); apply(); });
     apply();
   });
 })();
 
 let toastT = 0;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+/* Static text in the page is written in English; on load (and when the language changes) each text
+   and each title, aria-label and placeholder is looked up in STRINGS. The English is kept so the
+   page can switch back. */
+const domEN = new Map(); let domScanned = false;
+function scanDom(){
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => {
+    const p = n.parentElement; if (!p || p.closest('script,style,svg,canvas,#scPreview,#gSpots,#gTowns,#gCats,#cList,#cDemand,#lineList,#indIO,#toast,#hint,option[data-dyn]')) return NodeFilter.FILTER_REJECT;
+    return /[A-Za-z]{2}/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }});
+  for (let n; (n = walk.nextNode());) domEN.set(n, n.nodeValue);
+  document.querySelectorAll('[title],[aria-label],[placeholder]').forEach(el => {
+    for (const a of ['title', 'aria-label', 'placeholder']) if (el.hasAttribute(a) && !el.dataset['en' + a.replace('-', '')]) el.dataset['en' + a.replace('-', '')] = el.getAttribute(a);
+  });
+  domScanned = true;
+}
+function applyLang(){
+  if (!domScanned) scanDom();
+  document.documentElement.lang = LANG;
+  for (const [n, en] of domEN){ if (!n.isConnected) continue; const t = en.trim(); if (!t) continue; const tr = T(t); n.nodeValue = tr === t ? en : en.replace(t, tr); }
+  document.querySelectorAll('[data-entitle],[data-enarialabel],[data-enplaceholder]').forEach(el => {
+    if (el.dataset.entitle != null) el.title = T(el.dataset.entitle);
+    if (el.dataset.enarialabel != null) el.setAttribute('aria-label', T(el.dataset.enarialabel));
+    if (el.dataset.enplaceholder != null) el.placeholder = T(el.dataset.enplaceholder);
+  });
+}
+function setLang(l){
+  LANG = l === 'de' ? 'de' : 'en';
+  try { localStorage.setItem('tfo-lang', LANG); } catch {}
+  $('#gArea').dataset.n = ''; $('#cGood').dataset.sig = ''; // rebuild these lists in the new language
+  applyLang(); ui(); draw(); renderUpd();
+  if (S.game && S.game.source) checkSource(S.game.source);
+  if (window.desktop) deskRefresh();
+  if ($('#scDlg').open) schemPreview();
+}
+applyLang();
+function toast(msg){ const t = $('#toast'); t.textContent = T(msg); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
 
 /* ---------- boot ---------- */
 let restored = false;

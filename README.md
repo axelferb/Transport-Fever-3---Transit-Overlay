@@ -9,6 +9,7 @@ Transit Overlay is a desktop app for planning your network outside the game. It 
 **Coverage (passengers)**
 - See which homes and workplaces are inside a stop's reach and which are left out.
 - Place planned stops and the buildings inside their circle turn green straight away. You can see what a new line would add before you build it.
+- A heatmap shows where the people no stop reaches live, and the app suggests the five best spots for a new stop. One click adds a stop there.
 - Coverage numbers per town.
 
 **Cargo**
@@ -21,7 +22,10 @@ Transit Overlay is a desktop app for planning your network outside the game. It 
 **Map**
 - Terrain with water and hill shading.
 - Focus on a single town, rotate the map to match your in-game view, and export a PNG.
+- **Schematic map:** turn your network into a metro-style diagram (45° angles, interchanges, legend) and save it as PNG or SVG to share.
 - You can also paste any screenshot and draw lines over it.
+
+**Languages:** English and German (⚙ Settings → Map display → Language).
 
 **How it works**
 - Click the Transit Overlay button in the game (or run one export command in the game console). The app picks the data up automatically and updates whenever you export again.
