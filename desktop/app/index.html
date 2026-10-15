@@ -117,6 +117,18 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .spot-row .why{display:block;font-size:12px;color:var(--muted);font-weight:400}
 .spot-row .btn{padding:3px 8px;font-size:12px}
 .check-row{display:flex;align-items:center;gap:6px;font-size:13px}
+.sc-dlg{width:min(1200px,94vw);height:min(820px,90vh);padding:0;border:1px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.sc-dlg[open]{display:grid;grid-template-columns:270px minmax(0,1fr)}
+.sc-dlg::backdrop{background:rgba(10,12,15,.45)}
+.sc-side{display:flex;flex-direction:column;gap:12px;padding:20px;border-right:1px solid var(--rule);overflow-y:auto}
+.sc-side h2{margin:0;font-size:17px}
+.sc-side .info{margin:0}
+.sc-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.sc-field input,.sc-field select{border:1px solid var(--rule);background:var(--bg);color:var(--ink);border-radius:7px;padding:7px 8px;font:inherit;font-size:14px;font-weight:500}
+.sc-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+.sc-preview{background:var(--stage);padding:16px;overflow:auto;display:flex;align-items:center;justify-content:center}
+.sc-preview svg{max-width:100%;max-height:100%;box-shadow:0 2px 14px rgba(0,0,0,.15);border-radius:4px}
+@media (max-width:760px){.sc-dlg[open]{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.sc-side{border-right:0;border-bottom:1px solid var(--rule)}}
 .cats{display:flex;flex-direction:column;gap:4px}
 .ind-row{display:grid;grid-template-columns:12px minmax(0,1fr);grid-template-areas:"sw nm" ". why";gap:2px 8px;align-items:center;border:0;background:transparent;border-radius:6px;padding:6px 8px;cursor:pointer;text-align:left}
 .ind-row:hover{background:var(--bg)}
@@ -203,6 +215,7 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
   <div class="upd" id="updPill" hidden><a id="updLink" href="#" target="_blank" rel="noopener"></a><button id="updClose" title="Hide until the next version" aria-label="Hide update notice">×</button></div>
   <div class="upd warn" id="modPill" hidden><a id="modLink" href="#" target="_blank" rel="noopener"></a><button id="modClose" title="Hide for now" aria-label="Hide mod notice">×</button></div>
   <button class="chip" id="liveChip" hidden title="Game data · open settings"></button>
+  <button class="btn" id="schemBtn" title="A metro-style diagram of your lines, to save and share">Schematic map</button>
   <button class="btn primary" id="exportBtn">Export PNG</button>
   <button class="btn icon gear" id="gearBtn" title="Settings" aria-label="Settings" aria-pressed="false">⚙</button>
   <input type="file" id="fileIn" accept="image/*,.json,application/json" hidden>
@@ -430,6 +443,23 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
   </aside>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
+<dialog class="sc-dlg" id="scDlg" aria-labelledby="scHead">
+  <div class="sc-side">
+    <h2 id="scHead">Schematic map</h2>
+    <p class="info">A metro-style diagram of the passenger lines on the map. It follows the area you picked at the top.</p>
+    <label class="sc-field"><span>Title</span><input id="scTitle" type="text" maxlength="60" placeholder="My network"></label>
+    <label class="sc-field"><span>Layout</span><select id="scLayout"><option value="schem">Schematic (45° angles)</option><option value="geo">Geographic</option></select></label>
+    <label class="sc-field"><span>Style</span><select id="scStyle"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label class="check-row"><input type="checkbox" id="scNames" checked> Station names</label>
+    <label class="check-row"><input type="checkbox" id="scPlanned" checked> Lines I drew myself (dashed)</label>
+    <div class="sc-btns">
+      <button class="btn primary" id="scPng">Save PNG</button>
+      <button class="btn" id="scSvg">Save SVG</button>
+      <button class="btn" id="scClose">Close</button>
+    </div>
+  </div>
+  <div class="sc-preview" id="scPreview"></div>
+</dialog>
 
 <script>
 (() => {
@@ -1454,6 +1484,244 @@ async function exportPNG(){
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   if (!blob){ toast('The image was too large to export.'); return; }
   await saveFile('transit-map.png', blob);
+}
+
+/* ---------- schematic map: a metro-style diagram of the network, to save and share ---------- */
+/* The stations and lines come from what is drawn on the map (game lines and your own). The layout
+   keeps the rough geography, pulls every stretch towards 0°, 45° or 90°, and shortens long empty
+   stretches between towns so the whole network fits. Shared stretches are drawn side by side. */
+function schemData(opts){
+  const st = new Map(), lines = [];
+  const keyOf = n => { const s = S.stations[n]; return s && s.sg != null ? 'g' + s.sg : 'n' + n; };
+  S.lines.forEach((l, li) => {
+    if (l.cargo) return;
+    if (!opts.planned && !l.gameId) return;
+    const edges = new Set(), seq = [];
+    for (const br of l.branches || []){
+      let prev = null;
+      for (const n of br.path || []){
+        const s = S.stations[n], p = S.nodes[n]; if (!s || !p) continue;
+        const k = keyOf(n);
+        if (!st.has(k)) st.set(k, {k, name:s.name || '', xs:0, ys:0, c:0, lines:new Set()});
+        const o = st.get(k); o.xs += p.x; o.ys += p.y; o.c++; o.lines.add(li); if (!o.name && s.name) o.name = s.name;
+        if (prev && prev !== k){ edges.add(prev < k ? prev + '|' + k : k + '|' + prev); }
+        if (prev !== k) seq.push(k);
+        prev = k;
+      }
+    }
+    if (edges.size) lines.push({li, name:l.name, color:l.color, mode:l.mode, edges:[...edges].map(e => e.split('|')), planned:!l.gameId});
+  });
+  for (const o of st.values()){ o.x = o.xs / o.c; o.y = o.ys / o.c; }
+  for (const k of [...st.keys()]) if (!lines.some(L => L.edges.some(e => e[0] === k || e[1] === k))) st.delete(k);
+  return {st, lines};
+}
+function schemLayout(D, geographic){
+  const S0 = [...D.st.values()], E = new Map();
+  D.lines.forEach(L => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!E.has(k)) E.set(k, [a, b]); }));
+  const edges = [...E.values()];
+  const P = new Map(S0.map(o => [o.k, {x:o.x, y:o.y}]));
+  const lens = edges.map(([a, b]) => Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y)).filter(v => v > 0).sort((a, b) => a - b);
+  const Lm = lens.length ? lens[Math.floor(lens.length / 2)] : 100;
+  // scale so a typical stretch is 70 units long
+  const k0 = 70 / Lm;
+  for (const p of P.values()){ p.x *= k0; p.y *= k0; }
+  if (!geographic){
+    const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(46, d <= 70 ? d : 70 * Math.pow(d / 70, 0.35)); });
+    const keys = [...P.keys()];
+    for (let it = 0; it < 600; it++){
+      const a0 = 0.5 * (1 - it / 700);
+      edges.forEach(([a, b], i) => {
+        const pa = P.get(a), pb = P.get(b), dx = pb.x - pa.x, dy = pb.y - pa.y, d = Math.hypot(dx, dy) || 1;
+        const th = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+        const L = it < 150 ? d + (want[i] - d) * 0.5 : want[i];
+        const tx = Math.cos(th) * L, ty = Math.sin(th) * L, cx = (tx - dx) * a0 * 0.5, cy = (ty - dy) * a0 * 0.5;
+        pa.x -= cx; pa.y -= cy; pb.x += cx; pb.y += cy;
+      });
+      if (it % 3 === 0) for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++){
+        const p = P.get(keys[i]), q = P.get(keys[j]), dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy);
+        if (d < 40 && d > 0.01){ const f = (40 - d) / d * 0.25; p.x -= dx*f; p.y -= dy*f; q.x += dx*f; q.y += dy*f; }
+        else if (d <= 0.01){ q.x += 3; }
+      }
+    }
+  }
+  schemPack(P, edges);
+  return {P, edges};
+}
+/* Separate networks (towns far apart with no line between them) are slid towards each other until
+   they nearly touch, keeping which one is north, south, east or west of which. */
+function schemPack(P, edges){
+  // networks: stations joined by lines
+  const up = new Map(); const find = k => { while (up.get(k) !== k){ up.set(k, up.get(up.get(k))); k = up.get(k); } return k; };
+  for (const k of P.keys()) up.set(k, k);
+  for (const [a, b] of edges) up.set(find(a), find(b));
+  const comps = new Map();
+  for (const k of P.keys()){ const r = find(k); if (!comps.has(r)) comps.set(r, []); comps.get(r).push(k); }
+  if (comps.size < 2) return;
+  const boxOf = keys => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const k of keys){ const p = P.get(k); x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); } return {x0, y0, x1, y1}; };
+  const near = (a, b, m) => a.x0 - m < b.x1 && a.x1 + m > b.x0 && a.y0 - m < b.y1 && a.y1 + m > b.y0;
+  // groups: networks that overlap or nearly touch belong to the same place and move as one
+  let G = [...comps.values()].map(keys => ({keys, b:boxOf(keys)}));
+  for (let merged = true; merged;){
+    merged = false;
+    outer: for (let i = 0; i < G.length; i++) for (let j = i + 1; j < G.length; j++) if (near(G[i].b, G[j].b, 40)){
+      const keys = G[i].keys.concat(G[j].keys); G[i] = {keys, b:boxOf(keys)}; G.splice(j, 1); merged = true; break outer;
+    }
+  }
+  if (G.length < 2) return;
+  G.sort((a, b) => b.keys.length - a.keys.length);
+  const M = 90; // room between places, for station names
+  const anchor = G[0], ax = (anchor.b.x0 + anchor.b.x1) / 2, ay = (anchor.b.y0 + anchor.b.y1) / 2;
+  for (let it = 0; it < 400; it++){
+    let moved = false;
+    for (const c of G.slice(1)){
+      const cx = (c.b.x0 + c.b.x1) / 2, cy = (c.b.y0 + c.b.y1) / 2, d = Math.hypot(ax - cx, ay - cy);
+      if (d < 1) continue;
+      const st = Math.max(2, d * 0.04), dx = (ax - cx) / d * st, dy = (ay - cy) / d * st;
+      const nb = {x0:c.b.x0 + dx, y0:c.b.y0 + dy, x1:c.b.x1 + dx, y1:c.b.y1 + dy};
+      if (G.some(o => o !== c && near(nb, o.b, M))) continue;
+      c.b = nb; c.dx = (c.dx || 0) + dx; c.dy = (c.dy || 0) + dy; moved = true;
+    }
+    if (!moved) break;
+  }
+  for (const c of G) if (c.dx) for (const k of c.keys){ const p = P.get(k); p.x += c.dx; p.y += c.dy; }
+}
+/* One stretch drawn the metro way: a straight run along one of the eight directions, then one bend. */
+function schemRoute(a, b){
+  const dx = b.x - a.x, dy = b.y - a.y, ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax < 0.5 || ay < 0.5 || Math.abs(ax - ay) < 0.5) return [a, b];
+  const d = Math.min(ax, ay), sx = Math.sign(dx), sy = Math.sign(dy);
+  // diagonal part first when leaving, straight part last; the bend sits where it looks most natural
+  const m = ax > ay ? {x:a.x + sx*(ax - d) / 2, y:a.y} : {x:a.x, y:a.y + sy*(ay - d) / 2};
+  const n = ax > ay ? {x:m.x + sx*d, y:b.y} : {x:b.x, y:m.y + sy*d};
+  return [a, m, n, b];
+}
+function offsetPath(pts, off){
+  if (!off) return pts;
+  const out = [];
+  for (let i = 0; i < pts.length; i++){
+    const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const n1 = i > 0 ? norm(pts[i - 1], p) : null, n2 = i < pts.length - 1 ? norm(p, pts[i + 1]) : null;
+    let nx, ny;
+    if (n1 && n2){ nx = n1[0] + n2[0]; ny = n1[1] + n2[1]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l; const c = nx*n1[0] + ny*n1[1]; const m = off / Math.max(0.4, c); out.push({x:p.x + nx*m, y:p.y + ny*m}); }
+    else { const n = n1 || n2; out.push({x:p.x + n[0]*off, y:p.y + n[1]*off}); }
+  }
+  return out;
+  function norm(u, v){ const dx = v.x - u.x, dy = v.y - u.y, l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; }
+}
+function schemSVG(opts){
+  const D = schemData(opts);
+  if (!D.lines.length) return null;
+  const {P} = schemLayout(D, opts.layout === 'geo');
+  const dark = opts.style === 'dark';
+  const C = dark ? {bg:'#14171B', ink:'#ECEAE5', muted:'#8C939C', st:'#14171B', rule:'#2A3036'} : {bg:'#FBFAF7', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#E2DED6'};
+  const W = 7, GAP = 1.5; // line width and gap between side-by-side lines
+  // which lines run along each stretch, in one fixed order so they don't swap sides
+  const onEdge = new Map();
+  D.lines.forEach((L, i) => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!onEdge.has(k)) onEdge.set(k, []); onEdge.get(k).push(i); }));
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of P.values()){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const f = v => v.toFixed(1);
+  const paths = [];
+  D.lines.forEach((L, i) => {
+    for (const [a, b] of L.edges){
+      const list = onEdge.get(a + '|' + b), n = list.length, j = list.indexOf(i);
+      const off = (j - (n - 1) / 2) * (W + GAP);
+      const pts = offsetPath(schemRoute(P.get(a), P.get(b)), off);
+      paths.push(`<path d="M${pts.map(p => f(p.x) + ' ' + f(p.y)).join(' L')}" stroke="${L.color}" stroke-width="${W}" fill="none" stroke-linecap="round" stroke-linejoin="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/>`);
+    }
+  });
+  // stations: a white dot, or a white capsule where several lines meet
+  const marks = [], labels = [], boxes = [];
+  const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  const stations = [...D.st.values()];
+  for (const o of stations){
+    const p = P.get(o.k), n = o.lines.size, maxBundle = Math.max(1, ...[...onEdge.entries()].filter(([k]) => k.split('|').includes(o.k)).map(([, v]) => v.length));
+    const r = n > 1 ? (maxBundle * (W + GAP)) / 2 + 3 : W * 0.75;
+    marks.push(n > 1 ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>` : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2"/>`);
+    boxes.push({x:p.x - r, y:p.y - r, w:2*r, h:2*r});
+    o.r = r;
+  }
+  if (opts.names !== false){
+    const fs = 11;
+    const segs = [];
+    for (const [k] of onEdge){ const [a, b] = k.split('|'); const pts = schemRoute(P.get(a), P.get(b)); for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); }
+    const hitSeg = bx => segs.some(([u, v]) => segBox(u, v, bx));
+    const hitBox = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
+    const order = stations.slice().sort((a, b) => b.lines.size - a.lines.size);
+    for (const o of order){
+      if (!o.name) continue;
+      const p = P.get(o.k), txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
+      const w = txt.length * fs * 0.56, h = fs * 1.2, g = o.r + 4, bold = o.lines.size > 1;
+      const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, -g - h, 'middle'], [-w/2, g, 'middle'], [g*0.7, -g*0.7 - h, 'start'], [g*0.7, g*0.7, 'start'], [-g*0.7 - w, -g*0.7 - h, 'end'], [-g*0.7 - w, g*0.7, 'end']];
+      let pick = null;
+      for (const [dx, dy, anchor] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, anchor]; break; } }
+      if (!pick) for (const [dx, dy, anchor] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, anchor]; break; } }
+      if (!pick) continue;
+      const [bx, anchor] = pick; boxes.push(bx);
+      const tx = anchor === 'start' ? bx.x : anchor === 'end' ? bx.x + w : bx.x + w/2;
+      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.78)}" text-anchor="${anchor}" font-size="${fs}" font-weight="${bold ? 700 : 500}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
+      x0 = Math.min(x0, bx.x); x1 = Math.max(x1, bx.x + w); y0 = Math.min(y0, bx.y); y1 = Math.max(y1, bx.y + h);
+    }
+  }
+  // legend under the map
+  const pad = 36, mapW = x1 - x0, mapH = y1 - y0;
+  const title = opts.title || '';
+  const head = title ? 54 : 18;
+  const cols = Math.max(1, Math.floor(Math.max(mapW, 520) / 250)), rowsN = Math.ceil(D.lines.length / cols), legH = 22 + rowsN * 22;
+  const Wt = Math.max(mapW, 520) + pad*2, Ht = head + mapH + pad + legH + 34;
+  const ox = pad - x0 + (Wt - pad*2 - mapW) / 2, oy = head + pad/2 - y0;
+  const leg = D.lines.map((L, i) => {
+    const cx = pad + (i % cols) * ((Wt - pad*2) / cols), cy = head + mapH + pad + 18 + Math.floor(i / cols) * 22;
+    const nm = L.name.length > 30 ? L.name.slice(0, 29) + '…' : L.name;
+    return `<line x1="${cx}" y1="${cy}" x2="${cx + 26}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><text x="${cx + 36}" y="${cy + 4}" font-size="12" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`;
+  }).join('');
+  const foot = `<text x="${Wt - pad}" y="${Ht - 14}" text-anchor="end" font-size="10.5" fill="${C.muted}">${esc(T('Made with Transit Overlay for Transport Fever 3'))}</text>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(Wt)}" height="${Math.round(Ht)}" viewBox="0 0 ${f(Wt)} ${f(Ht)}" font-family="${font}">
+<rect width="100%" height="100%" fill="${C.bg}"/>
+${title ? `<text x="${pad}" y="40" font-size="24" font-weight="800" fill="${C.ink}">${esc(title)}</text>` : ''}
+<g transform="translate(${f(ox)} ${f(oy)})">${paths.join('')}${marks.join('')}${labels.join('')}</g>
+<line x1="${pad}" y1="${f(head + mapH + pad)}" x2="${f(Wt - pad)}" y2="${f(head + mapH + pad)}" stroke="${C.rule}"/>
+${leg}${foot}
+</svg>`;
+  return {svg, w:Wt, h:Ht};
+  function segBox(u, v, b){
+    // does the stretch u-v pass through box b (with the line's half width)
+    const m = W / 2 + 1, bx = {x:b.x - m, y:b.y - m, w:b.w + 2*m, h:b.h + 2*m};
+    for (let t = 0; t <= 1; t += 0.05){ const x = u.x + (v.x - u.x)*t, y = u.y + (v.y - u.y)*t; if (x > bx.x && x < bx.x + bx.w && y > bx.y && y < bx.y + bx.h) return true; }
+    return false;
+  }
+}
+
+let schemOut = null;
+function schemOpts(){
+  return {title:$('#scTitle').value.trim(), layout:$('#scLayout').value, style:$('#scStyle').value, names:$('#scNames').checked, planned:$('#scPlanned').checked};
+}
+function schemPreview(){
+  const box = $('#scPreview');
+  schemOut = schemSVG(schemOpts());
+  if (!schemOut){ box.innerHTML = ''; const p = document.createElement('p'); p.className = 'info'; p.textContent = T('There are no passenger lines on the map yet. Import game data or draw a line first.'); box.append(p); return; }
+  box.innerHTML = schemOut.svg;
+  const svg = box.querySelector('svg'); svg.removeAttribute('width'); svg.removeAttribute('height'); svg.style.width = '100%'; svg.style.height = '100%';
+}
+function openSchematic(){
+  finishLine(false);
+  if (!$('#scTitle').value){
+    const G = S.game; $('#scTitle').value = G && G.focus != null ? (G.towns[G.focus] || '') : '';
+  }
+  $('#scDlg').showModal(); schemPreview();
+}
+async function schemSave(kind){
+  if (!schemOut) return;
+  if (kind === 'svg'){ await saveFile('transit-schematic.svg', schemOut.svg); return; }
+  const sc = 2, img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(schemOut.svg);
+  try { await img.decode(); } catch { toast('The image was too large to export.'); return; }
+  const c = document.createElement('canvas'); c.width = Math.round(schemOut.w*sc); c.height = Math.round(schemOut.h*sc);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  if (!blob){ toast('The image was too large to export.'); return; }
+  await saveFile('transit-schematic.png', blob);
 }
 
 document.addEventListener('paste', e => {
@@ -2825,6 +3093,12 @@ $('#bannerOpen').addEventListener('click', () => $('#fileIn').click());
 $('#fileIn').addEventListener('change', e => { readFile(e.target.files[0]); e.target.value = ''; });
 $('#saveProj').addEventListener('click', () => { finishLine(false); saveFile('transit-project.json', JSON.stringify(projectObj())); });
 $('#exportBtn').addEventListener('click', exportPNG);
+$('#schemBtn').addEventListener('click', openSchematic);
+['#scLayout', '#scStyle', '#scNames', '#scPlanned'].forEach(id => $(id).addEventListener('change', schemPreview));
+$('#scTitle').addEventListener('input', () => { clearTimeout(schemPreview.t); schemPreview.t = setTimeout(schemPreview, 250); });
+$('#scPng').addEventListener('click', () => schemSave('png'));
+$('#scSvg').addEventListener('click', () => schemSave('svg'));
+$('#scClose').addEventListener('click', () => $('#scDlg').close());
 $('#zIn').addEventListener('click', () => zoomAt(cw/2, ch/2, 1.25));
 $('#zOut').addEventListener('click', () => zoomAt(cw/2, ch/2, 0.8));
 $('#zFit').addEventListener('click', fit);
