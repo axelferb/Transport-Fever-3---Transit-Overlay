@@ -727,9 +727,9 @@ const STRINGS = {de:{
   "Reaches {a} residents and {b} jobs. New: {c} residents, {d} jobs that no game stop reaches.": "Erreicht {a} Einwohner und {b} Arbeitsplätze. Neu: {c} Einwohner, {d} Arbeitsplätze, die keine Haltestelle im Spiel erreicht.",
   "Drawing {name}: click to add points · click {name} again to rejoin it · Esc ends this branch · Enter finishes": "Zeichne {name}: Klicken setzt Punkte · erneut auf {name} klicken verbindet · Esc beendet den Abzweig · Enter schließt ab",
   "Click a point on {name} to draw a branch from it · click elsewhere to start a new line": "Klicke auf einen Punkt von {name}, um dort abzuzweigen · klicke woanders für eine neue Linie",
-  "Click on {name} to branch or extend it · click elsewhere for a new line ({mode})": "Klicke auf {name}, um abzuzweigen oder zu verlängern · klicke woanders für eine neue Linie ({mode})",
-  "Click to start a new line ({mode}). Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein und folgen Straßen (Alt gedrückt halten zum freien Zeichnen).",
-  "Click to start a new line ({mode}). Points snap to stops and lines nearby.": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein.",
+  "Click on {name} to branch or extend it · click elsewhere for a new {mode} line": "Klicke auf {name}, um abzuzweigen oder zu verlängern · klicke woanders für eine neue Linie ({mode})",
+  "Click to start a new {mode} line. Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein und folgen Straßen (Alt gedrückt halten zum freien Zeichnen).",
+  "Click to start a new {mode} line. Points snap to stops and lines nearby.": "Klicke, um eine neue Linie zu beginnen ({mode}). Punkte rasten an Haltestellen und Linien in der Nähe ein.",
   "Click where {name} is on the screenshot": "Klicke dorthin, wo {name} im Screenshot ist",
   "Click where the station is on the screenshot": "Klicke dorthin, wo die Station im Screenshot ist",
   "Click a point on {name} to branch from it, or its end to extend it": "Klicke auf einen Punkt von {name}, um abzuzweigen, oder auf ihr Ende, um sie zu verlängern",
@@ -3404,11 +3404,11 @@ function ui(){
   const sl = sel.line != null ? lineById(sel.line) : null;
   let h;
   if (tool === 'draw'){
-    const md = T(MODES[newMode].label);
+    const md = LANG === 'en' ? MODES[newMode].label.toLowerCase() : T(MODES[newMode].label);
     if (al && activeBr) h = T('Drawing {name}: click to add points · click {name} again to rejoin it · Esc ends this branch · Enter finishes', {name:al.name});
     else if (al) h = T('Click a point on {name} to draw a branch from it · click elsewhere to start a new line', {name:al.name});
-    else if (sl) h = T('Click on {name} to branch or extend it · click elsewhere for a new line ({mode})', {name:sl.name, mode:md});
-    else h = T(roadSnapOn(newMode) ? 'Click to start a new line ({mode}). Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).' : 'Click to start a new line ({mode}). Points snap to stops and lines nearby.', {mode:md});
+    else if (sl) h = T('Click on {name} to branch or extend it · click elsewhere for a new {mode} line', {name:sl.name, mode:md});
+    else h = T(roadSnapOn(newMode) ? 'Click to start a new {mode} line. Points snap to stops and lines nearby, and follow roads (hold Alt to draw freely).' : 'Click to start a new {mode} line. Points snap to stops and lines nearby.', {mode:md});
   }
   else if (tool === 'station') h = (S.game && S.game.xf) ? 'Click to add a stop. It snaps to the nearest road (hold Alt to place it freely) or onto a line.' : 'Click a point where lines meet to mark a station';
   else if (tool === 'cut') h = 'Click a segment to cut it out of its line. The line splits there; other lines on the same street stay.';
