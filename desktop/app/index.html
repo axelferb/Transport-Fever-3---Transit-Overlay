@@ -355,6 +355,7 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
       <h3 class="sub" id="gSpotsHead">Best spots for a new stop</h3>
       <div id="gSpotsBox">
         <label class="check-row"><input type="checkbox" id="gHeat"> Heatmap of gaps</label>
+        <label class="check-row"><input type="checkbox" id="gSpotsOn"> Suggested spots</label>
         <p class="info" id="gSpotsInfo"></p>
         <div id="gSpots" class="spots"></div>
       </div>
@@ -597,6 +598,7 @@ const STRINGS = {de:{
   "Plan with the Station tool: click a road or line to add a stop. What it reaches turns green with an amber ring.": "Plane mit dem Stations-Werkzeug: Klicke auf eine Straße oder Linie, um eine Haltestelle hinzuzufügen. Was sie erreicht, wird grün mit gelbem Ring.",
   "Best spots for a new stop": "Beste Orte für eine neue Haltestelle",
   "Heatmap of gaps": "Heatmap der Lücken",
+  "Suggested spots": "Vorgeschlagene Orte",
   "Towns with the most not reached": "Städte mit den meisten Lücken",
   "Needs game data": "Spieldaten erforderlich",
   "Coverage and cargo come from your Transport Fever 3 save. Open ⚙ Settings → Game connection to import it.": "Abdeckung und Fracht kommen aus deinem Transport-Fever-3-Spielstand. Öffne ⚙ Einstellungen → Verbindung zum Spiel, um ihn zu importieren.",
@@ -1431,7 +1433,7 @@ function renderScene(g, screen){
   if (activeTab === 'cargo'){ drawCargoRadii(g, u); drawCargo(g, u); }
   const G = computeGeometry();
   drawNetwork(g, G, u, screen);
-  if (showCov && S.game && S.game.xf && S.settings.coverage !== 'off') drawGapSpots(g, u);
+  if (showCov && S.game && S.game.xf && S.settings.coverage !== 'off' && S.settings.gapSpots !== false) drawGapSpots(g, u);
   return G;
 }
 
@@ -2969,8 +2971,11 @@ function renderSpots(){
   const G = S.game, D = gapData(), types = covTypes(), any = types.some(Boolean);
   $('#gSpotsHead').hidden = $('#gSpotsBox').hidden = !any || !G.xf;
   $('#gHeat').checked = S.settings.gapHeat !== false;
+  const on = S.settings.gapSpots !== false;
+  $('#gSpotsOn').checked = on;
   const box = $('#gSpots'); box.textContent = '';
-  if (!any || !G.xf) return;
+  $('#gSpotsInfo').hidden = !on;
+  if (!any || !G.xf || !on) return;
   $('#gSpotsInfo').textContent = D.spots.length ? T('Where one new stop ({r} m reach, like your other stops) would reach the most people no stop reaches today. Click a spot to zoom to it.', {r:Math.round(D.R)}) : T('Every home and workplace shown is already reached. Nice work.');
   D.spots.forEach((s, n) => {
     const row = document.createElement('div'); row.className = 'spot-row'; row.title = T('Zoom to this spot');
@@ -3535,6 +3540,7 @@ $('#gSnap').addEventListener('change', e => { S.settings.roadSnap = e.target.che
 $('#gColors').addEventListener('change', e => { S.settings.gameColors = e.target.checked; if (S.game && S.game.xf){ commit(); buildGameNetwork(); } ui(); draw(); });
 $('#gRebuild').addEventListener('click', () => { if (!S.game || !S.game.xf) return; commit(); buildGameNetwork(); fitNetwork(); ui(); draw(); toast(T('Drew {n} lines from the game', {n:S.lines.filter(l => l.gameId).length})); });
 $('#gHeat').addEventListener('change', e => { S.settings.gapHeat = e.target.checked; draw(); autosave(); });
+$('#gSpotsOn').addEventListener('change', e => { S.settings.gapSpots = e.target.checked; ui(); draw(); autosave(); });
 $('#gCov').addEventListener('change', e => { S.settings.coverage = e.target.value; ui(); draw(); });
 
 /* ---------- desktop app bridge (Electron) ---------- */
