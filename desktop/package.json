@@ -1,7 +1,7 @@
 {
   "name": "transit-overlay",
   "productName": "Transit Overlay",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "Draw and analyse transit networks over map screenshots or live Transport Fever 3 data.",
   "main": "main.js",
   "author": "Axel Ferb",

@@ -125,6 +125,17 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .sc-side .info{margin:0}
 .sc-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
 .sc-field input,.sc-field select{border:1px solid var(--rule);background:var(--bg);color:var(--ink);border-radius:7px;padding:7px 8px;font:inherit;font-size:14px;font-weight:500}
+.sc-modes{display:flex;flex-wrap:wrap;gap:6px}
+.sc-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:var(--bg);border-radius:999px;padding:4px 10px 4px 7px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.sc-chip input{margin:0;accent-color:var(--accent)}
+.sc-pick summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)}
+.sc-all{border:0;background:transparent;color:var(--focus);font:inherit;font-size:12px;cursor:pointer;padding:2px 0}
+.sc-lines{display:flex;flex-direction:column;gap:2px;margin-top:6px;max-height:220px;overflow-y:auto}
+.sc-line{display:grid;grid-template-columns:auto 22px minmax(0,1fr);align-items:center;gap:6px;font-size:13px;padding:3px 2px;cursor:pointer}
+.sc-line input{margin:0;accent-color:var(--accent)}
+.sc-line.off{opacity:.45}
+.sc-line .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-sw{height:5px;border-radius:3px}
 .sc-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 .sc-preview{background:var(--stage);padding:16px;overflow:auto;display:flex;align-items:center;justify-content:center}
 .sc-preview svg{max-width:100%;max-height:100%;box-shadow:0 2px 14px rgba(0,0,0,.15);border-radius:4px}
@@ -455,6 +466,11 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
     <label class="sc-field"><span>Style</span><select id="scStyle"><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <label class="check-row"><input type="checkbox" id="scNames" checked> Station names</label>
     <label class="check-row"><input type="checkbox" id="scPlanned" checked> Lines I drew myself (dashed)</label>
+    <div class="sc-field"><span>Show</span><div class="sc-modes" id="scModes"></div></div>
+    <details class="sc-pick">
+      <summary><span id="scLinesHead">Lines</span><button type="button" class="sc-all" id="scAll">Show all</button></summary>
+      <div class="sc-lines" id="scLines"></div>
+    </details>
     <div class="sc-btns">
       <button class="btn primary" id="scPng">Save PNG</button>
       <button class="btn" id="scSvg">Save SVG</button>
@@ -598,6 +614,8 @@ const STRINGS = {de:{
   "Plan with the Station tool: click a road or line to add a stop. What it reaches turns green with an amber ring.": "Plane mit dem Stations-Werkzeug: Klicke auf eine Straße oder Linie, um eine Haltestelle hinzuzufügen. Was sie erreicht, wird grün mit gelbem Ring.",
   "Best spots for a new stop": "Beste Orte für eine neue Haltestelle",
   "Heatmap of gaps": "Heatmap der Lücken",
+  "Lines ({on} of {n})": "Linien ({on} von {n})",
+  "Show all": "Alle zeigen",
   "Suggested spots": "Vorgeschlagene Orte",
   "Towns with the most not reached": "Städte mit den meisten Lücken",
   "Needs game data": "Spieldaten erforderlich",
@@ -1827,6 +1845,8 @@ function schemData(opts){
   S.lines.forEach((l, li) => {
     if (l.cargo) return;
     if (!opts.planned && !l.gameId) return;
+    if (opts.offModes && opts.offModes.includes(l.mode)) return;
+    if (opts.offLines && opts.offLines.includes(String(l.id))) return;
     const edges = new Set(), seq = [];
     for (const br of l.branches || []){
       let prev = null;
@@ -2027,7 +2047,41 @@ ${leg}${foot}
 
 let schemOut = null;
 function schemOpts(){
-  return {title:$('#scTitle').value.trim(), layout:$('#scLayout').value, style:$('#scStyle').value, names:$('#scNames').checked, planned:$('#scPlanned').checked};
+  const f = schemFilter();
+  return {title:$('#scTitle').value.trim(), layout:$('#scLayout').value, style:$('#scStyle').value, names:$('#scNames').checked, planned:$('#scPlanned').checked, offModes:f.offModes, offLines:f.offLines};
+}
+/* Which lines go on the diagram: whole kinds (bus, tram, …) and single lines can be left out.
+   Remembered with the project. */
+function schemFilter(){
+  const f = S.settings.schemFilter || (S.settings.schemFilter = {offModes:[], offLines:[]});
+  f.offModes = f.offModes || []; f.offLines = f.offLines || [];
+  return f;
+}
+function schemFilterUI(){
+  const f = schemFilter(), planned = $('#scPlanned').checked;
+  const lines = S.lines.filter(l => !l.cargo && (planned || l.gameId));
+  const modes = Object.keys(MODES).filter(m => lines.some(l => l.mode === m));
+  const mbox = $('#scModes'); mbox.textContent = '';
+  for (const m of modes){
+    const lab = document.createElement('label'); lab.className = 'sc-chip';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !f.offModes.includes(m);
+    cb.addEventListener('change', () => { f.offModes = cb.checked ? f.offModes.filter(x => x !== m) : f.offModes.concat(m); autosave(); schemFilterUI(); schemPreview(); });
+    const n = lines.filter(l => l.mode === m).length;
+    lab.append(cb, document.createTextNode(T(MODES[m].label) + ' ' + n));
+    mbox.append(lab);
+  }
+  const lbox = $('#scLines'); lbox.textContent = '';
+  for (const l of lines){
+    const lab = document.createElement('label'); lab.className = 'sc-line';
+    const offMode = f.offModes.includes(l.mode);
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !offMode && !f.offLines.includes(String(l.id)); cb.disabled = offMode;
+    cb.addEventListener('change', () => { const id = String(l.id); f.offLines = cb.checked ? f.offLines.filter(x => x !== id) : f.offLines.concat(id); autosave(); const top = $('#scLines').scrollTop; schemFilterUI(); $('#scLines').scrollTop = top; schemPreview(); });
+    const sw = document.createElement('span'); sw.className = 'sc-sw'; sw.style.background = l.color;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.name || T('Untitled'); nm.title = l.name || '';
+    lab.append(cb, sw, nm); if (offMode) lab.classList.add('off');
+    lbox.append(lab);
+  }
+  $('#scLinesHead').textContent = T('Lines ({on} of {n})', {on:lines.filter(l => !f.offModes.includes(l.mode) && !f.offLines.includes(String(l.id))).length, n:lines.length});
 }
 function schemPreview(){
   const box = $('#scPreview');
@@ -2041,7 +2095,7 @@ function openSchematic(){
   if (!$('#scTitle').value){
     const G = S.game; $('#scTitle').value = G && G.focus != null ? (G.towns[G.focus] || '') : '';
   }
-  $('#scDlg').showModal(); schemPreview();
+  $('#scDlg').showModal(); schemFilterUI(); schemPreview();
 }
 async function schemSave(kind){
   if (!schemOut) return;
@@ -3439,7 +3493,9 @@ $('#exportBtn').addEventListener('click', exportPNG);
 $('#schemBtn').addEventListener('click', openSchematic);
 $('#setLang').value = LANG;
 $('#setLang').addEventListener('change', e => setLang(e.target.value));
-['#scLayout', '#scStyle', '#scNames', '#scPlanned'].forEach(id => $(id).addEventListener('change', schemPreview));
+['#scLayout', '#scStyle', '#scNames'].forEach(id => $(id).addEventListener('change', schemPreview));
+$('#scPlanned').addEventListener('change', () => { schemFilterUI(); schemPreview(); });
+$('#scAll').addEventListener('click', e => { e.preventDefault(); const f = schemFilter(); f.offModes = []; f.offLines = []; autosave(); schemFilterUI(); schemPreview(); });
 $('#scTitle').addEventListener('input', () => { clearTimeout(schemPreview.t); schemPreview.t = setTimeout(schemPreview, 250); });
 $('#scPng').addEventListener('click', () => schemSave('png'));
 $('#scSvg').addEventListener('click', () => schemSave('svg'));
