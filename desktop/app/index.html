@@ -1842,22 +1842,39 @@ async function exportPNG(){
 function schemData(opts){
   const st = new Map(), lines = [];
   const keyOf = n => { const s = S.stations[n]; return s && s.sg != null ? 'g' + s.sg : 'n' + n; };
+  const sgNode = new Map();
+  for (const n in S.stations){ const s = S.stations[n]; if (s.sg != null && S.nodes[n] && !s.secondary && !sgNode.has(String(s.sg))) sgNode.set(String(s.sg), n); }
   S.lines.forEach((l, li) => {
     if (l.cargo) return;
     if (!opts.planned && !l.gameId) return;
     if (opts.offModes && opts.offModes.includes(l.mode)) return;
     if (opts.offLines && opts.offLines.includes(String(l.id))) return;
-    const edges = new Set(), seq = [];
-    for (const br of l.branches || []){
-      let prev = null;
-      for (const n of br.path || []){
-        const s = S.stations[n], p = S.nodes[n]; if (!s || !p) continue;
-        const k = keyOf(n);
-        if (!st.has(k)) st.set(k, {k, name:s.name || '', xs:0, ys:0, c:0, lines:new Set()});
-        const o = st.get(k); o.xs += p.x; o.ys += p.y; o.c++; o.lines.add(li); if (!o.name && s.name) o.name = s.name;
-        if (prev && prev !== k){ edges.add(prev < k ? prev + '|' + k : k + '|' + prev); }
-        if (prev !== k) seq.push(k);
-        prev = k;
+    const edges = new Set();
+    const addSt = (k, x, y, name) => {
+      if (!st.has(k)) st.set(k, {k, name:name || '', xs:0, ys:0, c:0, lines:new Set()});
+      const o = st.get(k); o.xs += x; o.ys += y; o.c++; o.lines.add(li); if (!o.name && name) o.name = name;
+    };
+    const gl = l.gameId != null && S.game ? S.game.lines.find(g => g.id === l.gameId) : null;
+    if (gl && S.game.xf){
+      // Lines from the game: their stops in the game's order, the way the vehicles run them
+      // (after the last stop they return to the first).
+      const stops = gl.stops.filter(sg => S.game.groups[sg] && !isNaN(S.game.groups[sg].x));
+      for (const sg of new Set(stops)){
+        const gr = S.game.groups[sg], node = sgNode.get(String(sg)), q = node ? S.nodes[node] : W2I(gr.x, gr.y);
+        addSt('g' + sg, q.x, q.y, gr.name);
+      }
+      const n = stops.length, legs = n > 1 && stops[0] !== stops[n - 1] ? n : n - 1;
+      for (let i = 0; i < legs; i++){ const a = 'g' + stops[i], b = 'g' + stops[(i + 1) % n]; if (a !== b) edges.add(a < b ? a + '|' + b : b + '|' + a); }
+    } else {
+      // Lines you drew: the stations along each branch, in order
+      for (const br of l.branches || []){
+        let prev = null;
+        for (const n of br.path || []){
+          const s = S.stations[n], p = S.nodes[n]; if (!s || !p) continue;
+          const k = keyOf(n); addSt(k, p.x, p.y, s.name);
+          if (prev && prev !== k) edges.add(prev < k ? prev + '|' + k : k + '|' + prev);
+          prev = k;
+        }
       }
     }
     if (edges.size) lines.push({li, name:l.name, color:l.color, mode:l.mode, edges:[...edges].map(e => e.split('|')), planned:!l.gameId});
