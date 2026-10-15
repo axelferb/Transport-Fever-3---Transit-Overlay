@@ -65,6 +65,14 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Check the mod revision matches everywhere
+        run: |
+          json=$(node -p "require('./mod/transit_overlay/mod.json').revision")
+          lua=$(grep -o 'TFO|BEGIN|1|mod:[0-9]*' mod/transit_overlay/content/transit_overlay/export.lua | cut -d: -f2)
+          app=$(grep -o 'MOD_REVISION = [0-9]*' desktop/app/index.html | grep -o '[0-9]*$')
+          echo "mod.json $json, export.lua $lua, app $app"
+          [ "$json" = "$lua" ] && [ "$json" = "$app" ] || { echo "::error::Mod revision differs: mod.json $json, export.lua $lua, app $app"; exit 1; }
+
       - name: Zip the mod
         run: cd mod && zip -qr ../dist/transit_overlay-mod.zip transit_overlay
 

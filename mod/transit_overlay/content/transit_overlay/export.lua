@@ -32,7 +32,9 @@ function export.run()
 	  local pr={} pcall(function() for c,d in pairs(stk.cargoData) do pr[#pr+1]=c..":"..f1(d.produceFrequency or 0) end end)
 	  return table.concat(st,";").."|"..table.concat(rs,"~").."|"..table.concat(pr,";")
 	end
-	P("TFO|BEGIN|1")
+	-- "mod:<revision>" tells the desktop app which mod made this export, so it can warn when the
+	-- mod and the app are out of step. Keep it equal to "revision" in mod.json.
+	P("TFO|BEGIN|1|mod:4")
 	local sgs,sgList={},{}
 	local ok,err=pcall(function()
 	  for _,l in ipairs(arr(S.lineSystem.getLines())) do

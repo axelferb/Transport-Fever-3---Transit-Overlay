@@ -22,7 +22,7 @@ local function stockInfo(sl)
   local pr={} pcall(function() for c,d in pairs(stk.cargoData) do pr[#pr+1]=c..":"..f1(d.produceFrequency or 0) end end)
   return table.concat(st,";").."|"..table.concat(rs,"~").."|"..table.concat(pr,";")
 end
-P("TFO|BEGIN|1")
+P("TFO|BEGIN|1|console")
 local sgs,sgList={},{}
 local ok,err=pcall(function()
   for _,l in ipairs(arr(S.lineSystem.getLines())) do
