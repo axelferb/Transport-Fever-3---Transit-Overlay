@@ -2,6 +2,8 @@
 
 Transit Overlay is a desktop app for planning your network outside the game. It reads your save's lines, stations, roads, buildings and industries, and draws them as a clean transit-style map you can plan on.
 
+🇩🇪 **Auch auf Deutsch:** The app is available in English and German. It starts in German when Windows is set to German, or switch under ⚙ Settings → Map display → Language (⚙ Einstellungen → Kartenanzeige → Sprache).
+
 **Lines**
 - Your in-game lines are drawn on the actual roads and tracks they use. Bus, tram, train, subway and ferry each have their own style.
 - You can draw new lines on top: branches, loops and one-way stretches, snapped to roads if you like.
