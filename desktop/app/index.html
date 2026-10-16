@@ -2667,6 +2667,13 @@ function orientChain(G, ents){
   });
   return {list, orient};
 }
+/* 1 if the line's vehicles mostly drive on tracks, 0 if mostly on streets, null if no route is known. */
+function runsOn(lineId){
+  const L = S.game.legs && S.game.legs[lineId]; if (!L || !S.game.edges) return null;
+  const idx = prefSet([].concat(...Object.values(L)));
+  let t = 0, st = 0; for (const i of idx){ if (S.game.edges[i][11] === 1) t++; else st++; }
+  return t + st < 3 ? null : t > st ? 1 : 0;
+}
 function computeLegs(G){
   const legs = {};
   for (const r of G.raw){
@@ -2756,8 +2763,11 @@ function buildGameNetwork(){
   let routed = 0, straight = 0, fromGame = 0;
   const ends = new Set(), fbx = focusBox();
   for (const gl of S.game.lines){
-    const mode = gameMode(gl); if (!mode) continue;
-    const k = mode === 'train' ? 1 : (mode === 'bus' || mode === 'tram') ? 0 : -1;
+    // Route on the network the vehicles actually drive on (from their recorded routes), not only on
+    // the line's mode: a light rail or subway can report itself as a tram but run on its own tracks.
+    const ran = runsOn(gl.id);
+    const mode = gameMode(gl) || (ran === 1 ? 'train' : ran === 0 ? 'bus' : null); if (!mode) continue;
+    const k = ran != null && mode !== 'ferry' ? ran : mode === 'train' ? 1 : (mode === 'bus' || mode === 'tram') ? 0 : -1;
     const stops = gl.stops.filter(sg => S.game.groups[sg] && !isNaN(S.game.groups[sg].x));
     if (stops.length < 2) continue;
     if (fbx && !stops.some(sg => inBox(fbx, S.game.groups[sg].x, S.game.groups[sg].y))) continue;
