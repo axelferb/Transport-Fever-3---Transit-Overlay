@@ -20,6 +20,7 @@ Transit Overlay is a desktop app for planning your network outside the game. It 
 - Toggle commercial buildings, town industrial buildings and industries separately.
 - Town demand shows delivered against wanted for each good.
 - Plan cargo stops and see what they would reach.
+- A heatmap shows where town businesses want goods no cargo stop reaches, with the five best spots for a new cargo stop and the nearest industry that makes what they want.
 
 **Map**
 - Terrain with water and hill shading.
