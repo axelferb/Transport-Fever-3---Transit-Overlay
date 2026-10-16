@@ -114,7 +114,7 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .spot-row:hover{background:var(--bg)}
 .spot-n{width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--panel);display:grid;place-items:center;font-weight:800;font-size:11px}
 .spot-row .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spot-row .why{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.spot-row .why{display:block;font-size:12px;color:var(--muted);font-weight:400;white-space:normal}
 .spot-row .btn{padding:3px 8px;font-size:12px}
 .check-row{display:flex;align-items:center;gap:6px;font-size:13px}
 .sc-dlg{width:min(1200px,94vw);height:min(820px,90vh);padding:0;border:1px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -390,6 +390,13 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
       <label class="check"><input type="checkbox" id="cTind"> Town industrial buildings ◆</label>
       <p class="legend-key"><span class="k" style="background:#159447"></span>supplied <span class="k" style="background:#E07B00"></span>reached, missing <span class="k" style="background:#D6282E"></span>no cargo stop <span class="k" id="cSrcKey" style="background:#2F6FD6"></span><span id="cSrcTxt">makes it</span></p>
       <p class="info" id="cSummary"></p>
+      <h3 class="sub" id="cSpotsHead">Best spots for a new cargo stop</h3>
+      <div id="cSpotsBox">
+        <label class="check-row"><input type="checkbox" id="cHeat"> Heatmap of unmet demand</label>
+        <label class="check-row"><input type="checkbox" id="cSpotsOn"> Suggested spots</label>
+        <p class="info" id="cSpotsInfo"></p>
+        <div id="cSpots" class="spots"></div>
+      </div>
       <h3 class="sub" id="cListHead">Industries needing attention</h3>
       <div id="cList" class="towns"></div>
       <h3 class="sub" id="cDemandHead">Goods towns want (delivered / wanted)</h3>
@@ -614,6 +621,17 @@ const STRINGS = {de:{
   "Plan with the Station tool: click a road or line to add a stop. What it reaches turns green with an amber ring.": "Plane mit dem Stations-Werkzeug: Klicke auf eine Straße oder Linie, um eine Haltestelle hinzuzufügen. Was sie erreicht, wird grün mit gelbem Ring.",
   "Best spots for a new stop": "Beste Orte für eine neue Haltestelle",
   "Heatmap of gaps": "Heatmap der Lücken",
+  "Best spots for a new cargo stop": "Beste Orte für eine neue Frachthaltestelle",
+  "Heatmap of unmet demand": "Heatmap des ungedeckten Bedarfs",
+  "Where one new cargo stop ({r} m reach) would reach the most town businesses that want goods no cargo stop reaches. A truck line still has to bring the goods: the nearest industry that makes them is shown.": "Wo eine neue Frachthaltestelle ({r} m Reichweite) die meisten Betriebe in Städten erreichen würde, die Güter benötigen, die keine Frachthaltestelle liefert. Eine Lkw-Linie muss die Güter noch bringen: Die nächste Industrie, die sie herstellt, wird angezeigt.",
+  "Every business shown that wants goods is already reached by a cargo stop.": "Alle angezeigten Betriebe, die Güter benötigen, werden schon von einer Frachthaltestelle erreicht.",
+  "+{n} businesses": "+{n} Betriebe",
+  "+1 business": "+1 Betrieb",
+  "1 wants {good}": "1 benötigt {good}",
+  "{n} want {good}": "{n} benötigen {good}",
+  "{good} from {name} ({km} km)": "{good} von {name} ({km} km)",
+  "No industry on the map makes {good} yet": "Noch keine Industrie auf der Karte stellt {good} her",
+  "Cargo stop added. It reaches {n} businesses that want goods no cargo stop reaches.": "Frachthaltestelle hinzugefügt. Sie erreicht {n} Betriebe, die Güter benötigen, die keine Frachthaltestelle liefert.",
   "Lines ({on} of {n})": "Linien ({on} von {n})",
   "Show all": "Alle zeigen",
   "Suggested spots": "Vorgeschlagene Orte",
@@ -1448,10 +1466,11 @@ function renderScene(g, screen){
   if (S.settings.fade > 0){ g.fillStyle = `rgba(255,255,255,${S.settings.fade})`; g.fillRect(0, 0, bg.w, bg.h); }
   const showCov = activeTab === 'coverage';
   if (showCov){ drawRadii(g, u); drawCoverage(g, u); }
-  if (activeTab === 'cargo'){ drawCargoRadii(g, u); drawCargo(g, u); }
+  if (activeTab === 'cargo'){ drawCargoRadii(g, u); if (S.game && S.game.xf && S.game.industries && S.settings.cargoHeat !== false && (S.settings.cargoView || 'problems') !== 'off') drawCargoGapHeat(g); drawCargo(g, u); }
   const G = computeGeometry();
   drawNetwork(g, G, u, screen);
   if (showCov && S.game && S.game.xf && S.settings.coverage !== 'off' && S.settings.gapSpots !== false) drawGapSpots(g, u);
+  if (activeTab === 'cargo' && S.game && S.game.xf && S.game.industries && (S.settings.cargoView || 'problems') !== 'off' && S.settings.cargoSpots !== false) drawCargoGapSpots(g, u);
   return G;
 }
 
@@ -3063,6 +3082,151 @@ function renderSpots(){
   });
 }
 
+/* Cargo gaps: town businesses that want goods no cargo stop reaches. A heatmap of that demand, and
+   the spots where one new cargo stop would reach the most of it, with the nearest industry that
+   makes the good most of them want (that's where a truck line would come from). */
+let cgapCache = {sig:null};
+function cargoRadius(){
+  const rs = Object.keys(S.game.ccatch || {}).map(k => S.game.groups[k] && S.game.groups[k].r).filter(r => r > 0).sort((a, b) => a - b);
+  return rs.length ? rs[Math.floor(rs.length / 2)] : gapRadius();
+}
+function pickSpots(items, R, minW){
+  // items: {x, y, w}; greedy, one spot at a time, spots kept apart; returns spots with their items
+  const CELL = Math.max(20, R / 4), rr = Math.ceil(R / CELL), spots = [], left = new Set(items);
+  const snap = S.settings.roadSnap !== false && S.game.edges && S.game.edges.length;
+  for (let n = 0; n < 5 && left.size; n++){
+    const score = new Map();
+    for (const it of left){
+      const cx = Math.floor(it.x / CELL), cy = Math.floor(it.y / CELL);
+      for (let i = -rr; i <= rr; i++) for (let j = -rr; j <= rr; j++){
+        if (Math.hypot((cx + i + 0.5)*CELL - it.x, (cy + j + 0.5)*CELL - it.y) > R) continue;
+        const k = (cx + i) + ',' + (cy + j); score.set(k, (score.get(k) || 0) + it.w);
+      }
+    }
+    let best = null, bs = 0;
+    for (const [k, v] of score){
+      if (v <= bs) continue;
+      const [ci, cj] = k.split(',').map(Number);
+      if (spots.some(o => Math.hypot((ci + 0.5)*CELL - o.x, (cj + 0.5)*CELL - o.y) < R*1.2)) continue;
+      bs = v; best = k;
+    }
+    if (!best || bs < minW) break;
+    const [i, j] = best.split(',').map(Number);
+    let x = (i + 0.5)*CELL, y = (j + 0.5)*CELL;
+    if (snap){ const rn = nearStreet(x, y, R * 0.5); if (rn){ const q = roadGraph().nodes.get(rn.n); x = q[0]; y = q[1]; } }
+    const s = {x, y, r:R, items:[]};
+    for (const it of [...left]) if (Math.hypot(it.x - x, it.y - y) <= R){ s.items.push(it); left.delete(it); }
+    if (s.items.length) spots.push(s);
+  }
+  return spots;
+}
+function cargoGapData(){
+  const reach = cargoReach(), c = goodSel();
+  const sig = [S.game.at, cargoPlan.sig, S.game.focus, c, S.settings.cargoBiz !== false, S.settings.cargoTind !== false, S.settings.roadSnap !== false].join('#');
+  if (cgapCache.sig === sig) return cgapCache;
+  const items = [];
+  for (const [b, st] of bizInView()){
+    if (reach.has(b[0])) continue;
+    const ss = stockStatus(st);
+    const want = (c == null ? ss.req : ss.req.concat(ss.opt).filter(x => x.cargo === c)).filter(x => x.cf <= 0);
+    if (!want.length) continue;
+    const w = Math.max(1, want.reduce((a, x) => a + (x.cap > 0 ? x.cap : 1), 0));
+    items.push({x:b[1], y:b[2], w, town:b[5], goods:want.map(x => x.cargo)});
+  }
+  const R = cargoRadius(), wmax = items.reduce((a, it) => Math.max(a, it.w), 1);
+  const spots = pickSpots(items, R, 1).map(s => {
+    const goods = {}, town = {};
+    for (const it of s.items){ for (const g of it.goods) goods[g] = (goods[g] || 0) + 1; town[it.town] = (town[it.town] || 0) + 1; }
+    const gl = Object.entries(goods).sort((a, b) => b[1] - a[1]).map(([g, n]) => ({cargo:+g, n}));
+    const tid = Object.entries(town).sort((a, b) => b[1] - a[1])[0];
+    let src = null;
+    if (gl.length){
+      for (const ind of S.game.industries || []){
+        if (!stockStatus(ind).outputs.some(o => o.cargo === gl[0].cargo)) continue;
+        const d = Math.hypot(ind.x - s.x, ind.y - s.y);
+        if (!src || d < src.d) src = {ind, d};
+      }
+    }
+    return {...s, total:s.items.length, weight:s.items.reduce((a, it) => a + it.w, 0), goods:gl, townName:tid ? (S.game.towns[tid[0]] || '') : '', src};
+  }).sort((a, b) => b.total - a.total || b.weight - a.weight);
+  return cgapCache = {sig, pts:items, wmax, spots, R, heat:null};
+}
+function drawHeatLayer(g, D, alphaOf){
+  if (!D.pts.length) return;
+  const sc = 0.25, key = bg.w + 'x' + bg.h + ':' + pxPerM();
+  if (!D.heat || D.heat.key !== key){
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bg.w*sc)); c.height = Math.max(1, Math.ceil(bg.h*sc));
+    const h = c.getContext('2d'), r = Math.max(3, D.R * 0.7 * pxPerM() * sc);
+    const blob = document.createElement('canvas'), bs = Math.ceil(r*2); blob.width = blob.height = bs;
+    const bx = blob.getContext('2d'), gr = bx.createRadialGradient(bs/2, bs/2, 0, bs/2, bs/2, bs/2);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); bx.fillStyle = gr; bx.fillRect(0, 0, bs, bs);
+    for (const it of D.pts){ const p = W2I(it.x, it.y); h.globalAlpha = alphaOf(it); h.drawImage(blob, p.x*sc - bs/2, p.y*sc - bs/2); }
+    const id = h.getImageData(0, 0, c.width, c.height), d = id.data;
+    for (let i = 0; i < d.length; i += 4){
+      const a = d[i + 3] / 255; if (!a) continue;
+      const t = Math.min(1, a * 1.5);
+      d[i] = 244 - 34*t; d[i + 1] = 190 - 150*t; d[i + 2] = 60 - 30*t; d[i + 3] = Math.round(255 * Math.min(0.6, 0.12 + t*0.6));
+    }
+    h.putImageData(id, 0, 0);
+    D.heat = {key, c};
+  }
+  g.save(); g.imageSmoothingEnabled = true; g.drawImage(D.heat.c, 0, 0, bg.w, bg.h); g.restore();
+}
+function drawCargoGapHeat(g){ const D = cargoGapData(); drawHeatLayer(g, D, it => Math.min(1, 0.12 + 0.35 * Math.sqrt(it.w / D.wmax))); }
+function drawSpotMarks(g, u, spots, labelOf){
+  const k = pxPerM(), font = getComputedStyle(document.body).fontFamily;
+  spots.forEach((s, n) => {
+    const p = W2I(s.x, s.y);
+    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(28,32,38,0.7)'; g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(p.x, p.y, 11*u, 0, Math.PI*2); g.fillStyle = '#1C2026'; g.fill(); g.lineWidth = 2*u; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#fff'; g.font = `800 ${12*u}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
+    const lbl = labelOf(s);
+    g.font = `700 ${11.5*u}px ${font}`; const w = g.measureText(lbl).width + 12*u;
+    g.beginPath(); g.roundRect(p.x + 14*u, p.y - 9*u, w, 18*u, 9*u); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill(); g.lineWidth = u; g.strokeStyle = 'rgba(0,0,0,0.2)'; g.stroke();
+    g.fillStyle = '#1C2026'; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
+  });
+}
+function drawCargoGapSpots(g, u){
+  const D = cargoGapData();
+  drawSpotMarks(g, u, D.spots, s => '+' + s.total + (s.goods[0] ? ' · ' + cargoName(s.goods[0].cargo) : ''));
+}
+function addCargoSpotStop(s){
+  commit();
+  const at = W2I(s.x, s.y), id = addNode(at.x, at.y);
+  S.stations[id] = {name:'', side:'auto', solo:true, cargo:true};
+  sel = {line:null, branch:null, node:id}; ui(); draw();
+  toast(T('Cargo stop added. It reaches {n} businesses that want goods no cargo stop reaches.', {n:s.total}));
+}
+function renderCargoSpots(){
+  const G = S.game, D = cargoGapData(), any = S.settings.cargoBiz !== false || S.settings.cargoTind !== false;
+  $('#cSpotsHead').hidden = $('#cSpotsBox').hidden = !any || !G.xf;
+  $('#cHeat').checked = S.settings.cargoHeat !== false;
+  const on = S.settings.cargoSpots !== false;
+  $('#cSpotsOn').checked = on;
+  const box = $('#cSpots'); box.textContent = '';
+  $('#cSpotsInfo').hidden = !on;
+  if (!any || !G.xf || !on) return;
+  $('#cSpotsInfo').textContent = D.spots.length ? T('Where one new cargo stop ({r} m reach) would reach the most town businesses that want goods no cargo stop reaches. A truck line still has to bring the goods: the nearest industry that makes them is shown.', {r:Math.round(D.R)}) : T('Every business shown that wants goods is already reached by a cargo stop.');
+  D.spots.forEach((s, n) => {
+    const row = document.createElement('div'); row.className = 'spot-row'; row.title = T('Zoom to this spot');
+    const num = document.createElement('span'); num.className = 'spot-n'; num.textContent = n + 1;
+    const nm = document.createElement('span'); nm.className = 'nm';
+    nm.textContent = T(s.total === 1 ? '+1 business' : '+{n} businesses', {n:s.total}) + (s.townName ? ' · ' + s.townName : '');
+    const why = document.createElement('span'); why.className = 'why';
+    why.textContent = s.goods.slice(0, 3).map(x => T(x.n === 1 ? '1 wants {good}' : '{n} want {good}', {n:x.n, good:cargoName(x.cargo)})).join(', ') + (s.goods.length > 3 ? ', …' : '');
+    nm.append(why);
+    if (s.goods[0]){
+      const src = document.createElement('span'); src.className = 'why';
+      src.textContent = s.src ? T('{good} from {name} ({km} km)', {good:cargoName(s.goods[0].cargo), name:industryLabel(s.src.ind, stockStatus(s.src.ind)), km:(s.src.d / 1000).toLocaleString(LOCALE(), {maximumFractionDigits:1})}) : T('No industry on the map makes {good} yet', {good:cargoName(s.goods[0].cargo)});
+      nm.append(src);
+    }
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'btn'; add.textContent = T('Add stop');
+    add.addEventListener('click', e => { e.stopPropagation(); addCargoSpotStop(s); });
+    row.addEventListener('click', () => fitWorldBox([W2I(s.x - s.r*2, s.y - s.r*2), W2I(s.x + s.r*2, s.y + s.r*2)]));
+    row.append(num, nm, add); box.append(row);
+  });
+}
+
 function fillAlignSelects(){
   const opts = Object.entries(S.game.groups).filter(([, gr]) => gr.r > 0 || true).sort((a, b) => a[1].name.localeCompare(b[1].name));
   for (const id of ['gA1', 'gA2']){
@@ -3339,6 +3503,7 @@ function cargoUI(){
   const gname = goodSel() == null ? null : cargoName(goodSel());
   const indTxt = S.settings.cargoInd === false ? '' : (gname == null ? T('{n} industries need inputs: {a} without a cargo stop, {b} not supplied.', {n:inds.length, a:unreached, b:missing}) : T('{n} industries need {good}: {a} without a cargo stop, {b} not supplied.', {n:inds.length, good:gname, a:unreached, b:missing}) + ' ' + T('{n} make it.', {n:srcN})) + ' ';
   $('#cSummary').textContent = indTxt + T(gname == null ? '{n} buildings want goods: {a} not supplied ({b} out of reach of any cargo stop).' : '{n} buildings want {good}: {a} not supplied ({b} out of reach of any cargo stop).', {n:biz.length.toLocaleString(LOCALE()), good:gname, a:bizNone.toLocaleString(LOCALE()), b:bizNoStop.toLocaleString(LOCALE())});
+  renderCargoSpots();
   const list = $('#cList'); list.textContent = '';
   (S.settings.cargoInd === false ? [] : inds).filter(x => x.s.level !== 'ok').sort((a, b) => (a.s.level === 'unreached') - (b.s.level === 'unreached') || b.i.level - a.i.level).slice(0, 12).forEach(({i, s}) => {
     const row = document.createElement('button'); row.type = 'button'; row.className = 'ind-row';
@@ -3613,6 +3778,8 @@ $('#gSnap').addEventListener('change', e => { S.settings.roadSnap = e.target.che
 $('#gColors').addEventListener('change', e => { S.settings.gameColors = e.target.checked; if (S.game && S.game.xf){ commit(); buildGameNetwork(); } ui(); draw(); });
 $('#gRebuild').addEventListener('click', () => { if (!S.game || !S.game.xf) return; commit(); buildGameNetwork(); fitNetwork(); ui(); draw(); toast(T('Drew {n} lines from the game', {n:S.lines.filter(l => l.gameId).length})); });
 $('#gHeat').addEventListener('change', e => { S.settings.gapHeat = e.target.checked; draw(); autosave(); });
+$('#cHeat').addEventListener('change', e => { S.settings.cargoHeat = e.target.checked; draw(); autosave(); });
+$('#cSpotsOn').addEventListener('change', e => { S.settings.cargoSpots = e.target.checked; ui(); draw(); autosave(); });
 $('#gSpotsOn').addEventListener('change', e => { S.settings.gapSpots = e.target.checked; ui(); draw(); autosave(); });
 $('#gCov').addEventListener('change', e => { S.settings.coverage = e.target.value; ui(); draw(); });
 
