@@ -1912,6 +1912,7 @@ function schemLayout(D, geographic){
   // scale so a typical stretch is 70 units long
   const k0 = 70 / Lm;
   for (const p of P.values()){ p.x *= k0; p.y *= k0; }
+  const O = new Map([...P].map(([k, p]) => [k, {x:p.x, y:p.y}])); // positions before the layout moved them
   if (!geographic){
     const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(46, d <= 70 ? d : 70 * Math.pow(d / 70, 0.35)); });
     const keys = [...P.keys()];
@@ -1932,7 +1933,7 @@ function schemLayout(D, geographic){
     }
   }
   schemPack(P, edges);
-  return {P, edges};
+  return {P, edges, O, k0};
 }
 /* Separate networks (towns far apart with no line between them) are slid towards each other until
    they nearly touch, keeping which one is north, south, east or west of which. */
@@ -1995,92 +1996,216 @@ function offsetPath(pts, off){
   return out;
   function norm(u, v){ const dx = v.x - u.x, dy = v.y - u.y, l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; }
 }
+/* Smooth corners: a polyline with each bend rounded off (radius r, smaller on short stretches). */
+function roundedD(pts, r){
+  const f = v => v.toFixed(1);
+  if (pts.length < 3) return 'M' + pts.map(p => f(p.x) + ' ' + f(p.y)).join(' L');
+  let d = 'M' + f(pts[0].x) + ' ' + f(pts[0].y);
+  for (let i = 1; i < pts.length - 1; i++){
+    const a = pts[i - 1], p = pts[i], b = pts[i + 1];
+    const la = Math.hypot(p.x - a.x, p.y - a.y), lb = Math.hypot(b.x - p.x, b.y - p.y);
+    const rr = Math.min(r, la / 2, lb / 2);
+    if (rr < 0.5){ d += ' L' + f(p.x) + ' ' + f(p.y); continue; }
+    const p1 = {x:p.x + (a.x - p.x) / la * rr, y:p.y + (a.y - p.y) / la * rr}, p2 = {x:p.x + (b.x - p.x) / lb * rr, y:p.y + (b.y - p.y) / lb * rr};
+    d += ' L' + f(p1.x) + ' ' + f(p1.y) + ' Q' + f(p.x) + ' ' + f(p.y) + ' ' + f(p2.x) + ' ' + f(p2.y);
+  }
+  const z = pts[pts.length - 1];
+  return d + ' L' + f(z.x) + ' ' + f(z.y);
+}
+const SCHEM_MODE = {train:{code:'R', head:'Rail'}, subway:{code:'M', head:'Metro'}, tram:{code:'T', head:'Tram'}, bus:{code:'B', head:'Bus'}, ferry:{code:'F', head:'Ferry'}};
 function schemSVG(opts){
   const D = schemData(opts);
   if (!D.lines.length) return null;
-  const {P} = schemLayout(D, opts.layout === 'geo');
+  const {P, O, k0} = schemLayout(D, opts.layout === 'geo');
   const dark = opts.style === 'dark';
-  const C = dark ? {bg:'#14171B', ink:'#ECEAE5', muted:'#8C939C', st:'#14171B', rule:'#2A3036'} : {bg:'#FBFAF7', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#E2DED6'};
-  const W = 7, GAP = 1.5; // line width and gap between side-by-side lines
-  // which lines run along each stretch, in one fixed order so they don't swap sides
-  const onEdge = new Map();
-  D.lines.forEach((L, i) => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!onEdge.has(k)) onEdge.set(k, []); onEdge.get(k).push(i); }));
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const p of P.values()){ x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const C = dark
+    ? {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
+    : {bg:'#F3F2EE', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#D9D6CE', box:'rgba(40,48,40,0.045)', boxLine:'rgba(60,70,60,0.22)', water:'#CADCE6', town:'#5E6670'};
+  const W = 6.5, GAP = 1.5, RAD = 16;
+  const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const f = v => v.toFixed(1);
+  // short codes per kind of line, like R1, T2, B3
+  const seen = {};
+  D.lines.forEach(L => { const m = SCHEM_MODE[L.mode] || SCHEM_MODE.bus; seen[m.code] = (seen[m.code] || 0) + 1; L.code = m.code + seen[m.code]; L.head = m.head; });
+  const onEdge = new Map();
+  D.lines.forEach((L, i) => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!onEdge.has(k)) onEdge.set(k, []); onEdge.get(k).push(i); }));
+  const stations = [...D.st.values()];
+  for (const o of stations){
+    const n = o.lines.size, bundle = Math.max(1, ...[...onEdge.entries()].filter(([k]) => k.split('|').includes(o.k)).map(([, v]) => v.length));
+    o.inter = n > 1;
+    o.r = o.inter ? (bundle * (W + GAP)) / 2 + 3.5 : W * 0.62;
+  }
+  // towns: each stop belongs to the town whose buildings it sits among
+  const towns = new Map();
+  if (S.game && S.game.xf){
+    const tc = {};
+    for (const b of S.game.buildings){ const t = tc[b[5]] || (tc[b[5]] = {x:0, y:0, n:0, pts:[]}); t.x += b[1]; t.y += b[2]; t.n++; if (t.pts.length < 400) t.pts.push(b); }
+    for (const id in tc){ const t = tc[id]; t.x /= t.n; t.y /= t.n; t.r = Math.max(250, ...t.pts.map(b => Math.hypot(b[1] - t.x, b[2] - t.y))); }
+    for (const o of stations){
+      const w = I2W({x:o.x, y:o.y}); let best = null, bd = Infinity;
+      for (const id in tc){ const t = tc[id], d = Math.hypot(w.x - t.x, w.y - t.y); if (d < t.r * 1.15 && d < bd){ bd = d; best = id; } }
+      if (best != null){ o.town = best; if (!towns.has(best)) towns.set(best, {name:S.game.towns[best] || '', st:[]}); towns.get(best).st.push(o); }
+    }
+  }
+  // lines, with rounded bends; side by side where they share a stretch
   const paths = [];
   D.lines.forEach((L, i) => {
     for (const [a, b] of L.edges){
       const list = onEdge.get(a + '|' + b), n = list.length, j = list.indexOf(i);
-      const off = (j - (n - 1) / 2) * (W + GAP);
-      const pts = offsetPath(schemRoute(P.get(a), P.get(b)), off);
-      paths.push(`<path d="M${pts.map(p => f(p.x) + ' ' + f(p.y)).join(' L')}" stroke="${L.color}" stroke-width="${W}" fill="none" stroke-linecap="round" stroke-linejoin="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/>`);
+      const pts = offsetPath(schemRoute(P.get(a), P.get(b)), (j - (n - 1) / 2) * (W + GAP));
+      paths.push(`<path d="${roundedD(pts, RAD)}" stroke="${L.color}" stroke-width="${W}" fill="none" stroke-linecap="round" stroke-linejoin="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/>`);
     }
   });
-  // stations: a white dot, or a white capsule where several lines meet
-  const marks = [], labels = [], boxes = [];
-  const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-  const stations = [...D.st.values()];
+  const boxes = [], marks = [], labels = [], badges = [], townEls = [];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const grow = (x, y, w, h) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h); };
+  for (const p of P.values()) grow(p.x, p.y, 0, 0);
+  // stops: a dot in the line's colour, a white ring where lines meet
   for (const o of stations){
-    const p = P.get(o.k), n = o.lines.size, maxBundle = Math.max(1, ...[...onEdge.entries()].filter(([k]) => k.split('|').includes(o.k)).map(([, v]) => v.length));
-    const r = n > 1 ? (maxBundle * (W + GAP)) / 2 + 3 : W * 0.75;
-    marks.push(n > 1 ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>` : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2"/>`);
-    boxes.push({x:p.x - r, y:p.y - r, w:2*r, h:2*r});
-    o.r = r;
+    const p = P.get(o.k), L = D.lines.find(l => o.lines.has(l.li));
+    marks.push(o.inter
+      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>`
+      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`);
+    boxes.push({x:p.x - o.r, y:p.y - o.r, w:2*o.r, h:2*o.r});
   }
+  // town boxes behind their stops (one per group of stops close together), name in small capitals
+  const townLabels = [];
+  if (opts.towns !== false) for (const t of towns.values()){
+    const groups = [];
+    for (const o of t.st){
+      const p = P.get(o.k), near = groups.filter(g => g.some(q => Math.hypot(P.get(q.k).x - p.x, P.get(q.k).y - p.y) < 130));
+      if (!near.length) groups.push([o]);
+      else { near[0].push(o); for (const g of near.slice(1)){ near[0].push(...g); groups.splice(groups.indexOf(g), 1); } }
+    }
+    for (const g of groups){
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+      for (const o of g){ const p = P.get(o.k); bx0 = Math.min(bx0, p.x - o.r); by0 = Math.min(by0, p.y - o.r); bx1 = Math.max(bx1, p.x + o.r); by1 = Math.max(by1, p.y + o.r); }
+      const pad = 18; bx0 -= pad; by0 -= pad; bx1 += pad; by1 += pad;
+      townEls.push(`<rect x="${f(bx0)}" y="${f(by0)}" width="${f(bx1 - bx0)}" height="${f(by1 - by0)}" rx="12" fill="${C.box}" stroke="${C.boxLine}" stroke-width="1.6"/>`);
+      grow(bx0, by0, bx1 - bx0, by1 - by0);
+      if (t.name) townLabels.push({name:t.name, bx0, by0, bx1, by1});
+    }
+  }
+  // badges at each line's ends, stacked above the stop
+  if (opts.badges !== false){
+    const ends = new Map();
+    D.lines.forEach(L => {
+      const deg = new Map(); L.edges.forEach(([a, b]) => { deg.set(a, (deg.get(a) || 0) + 1); deg.set(b, (deg.get(b) || 0) + 1); });
+      let term = [...deg].filter(([, d]) => d === 1).map(([k]) => k);
+      if (!term.length && L.edges.length) term = [L.edges[0][0]];
+      for (const k of term){ if (!ends.has(k)) ends.set(k, []); if (!ends.get(k).includes(L)) ends.get(k).push(L); }
+    });
+    for (const [k, Ls] of ends){
+      const p = P.get(k), o = D.st.get(k), bh = 14, gap = 2;
+      const cols = Ls.length > 3 ? 2 : 1, cw = Math.max(...Ls.map(L => L.code.length * 6.6 + 10));
+      Ls.forEach((L, i) => {
+        const w = L.code.length * 6.6 + 10, c = i % cols, row = Math.floor(i / cols);
+        const x = p.x - (cols * cw + (cols - 1) * gap) / 2 + c * (cw + gap) + (cw - w) / 2, y = p.y - o.r - 5 - (row + 1) * (bh + gap);
+        badges.push(`<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${bh}" rx="3.5" fill="${L.color}"/><text x="${f(x + w/2)}" y="${f(y + 10.4)}" text-anchor="middle" font-size="10" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text>`);
+        boxes.push({x, y, w, h:bh}); grow(x, y, w, bh);
+      });
+    }
+  }
+  for (const t of townLabels){
+    const txt = t.name.toLocaleUpperCase(LOCALE()), w = txt.length * 7.4, cx = (t.bx0 + t.bx1) / 2;
+    const top = {x:cx - w/2, y:t.by0 - 19, w, h:14}, bot = {x:cx - w/2, y:t.by1 + 5, w, h:14};
+    const hit = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
+    const bx = !hit(top) ? top : !hit(bot) ? bot : top;
+    townEls.push(`<text x="${f(cx)}" y="${f(bx.y + 11)}" text-anchor="middle" font-size="10.5" font-weight="700" letter-spacing="1.4" fill="${C.town}">${esc(txt)}</text>`);
+    boxes.push(bx); grow(bx.x, bx.y, w, 14);
+  }
+  // station names, placed where they don't hit lines, stops, badges or town names
   if (opts.names !== false){
-    const fs = 11;
-    const segs = [];
+    const fs = 11, segs = [];
     for (const [k] of onEdge){ const [a, b] = k.split('|'); const pts = schemRoute(P.get(a), P.get(b)); for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); }
     const hitSeg = bx => segs.some(([u, v]) => segBox(u, v, bx));
     const hitBox = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
-    const order = stations.slice().sort((a, b) => b.lines.size - a.lines.size);
-    for (const o of order){
+    for (const o of stations.slice().sort((a, b) => b.lines.size - a.lines.size)){
       if (!o.name) continue;
       const p = P.get(o.k), txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
-      const w = txt.length * fs * 0.56, h = fs * 1.2, g = o.r + 4, bold = o.lines.size > 1;
-      const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, -g - h, 'middle'], [-w/2, g, 'middle'], [g*0.7, -g*0.7 - h, 'start'], [g*0.7, g*0.7, 'start'], [-g*0.7 - w, -g*0.7 - h, 'end'], [-g*0.7 - w, g*0.7, 'end']];
+      const w = txt.length * fs * 0.56, h = fs * 1.2, g = o.r + 5;
+      const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, g, 'middle'], [-w/2, -g - h, 'middle'], [g*0.7, g*0.7, 'start'], [g*0.7, -g*0.7 - h, 'start'], [-g*0.7 - w, g*0.7, 'end'], [-g*0.7 - w, -g*0.7 - h, 'end']];
       let pick = null;
-      for (const [dx, dy, anchor] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, anchor]; break; } }
-      if (!pick) for (const [dx, dy, anchor] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, anchor]; break; } }
+      for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, an]; break; } }
+      if (!pick) for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, an]; break; } }
       if (!pick) continue;
-      const [bx, anchor] = pick; boxes.push(bx);
-      const tx = anchor === 'start' ? bx.x : anchor === 'end' ? bx.x + w : bx.x + w/2;
-      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.78)}" text-anchor="${anchor}" font-size="${fs}" font-weight="${bold ? 700 : 500}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
-      x0 = Math.min(x0, bx.x); x1 = Math.max(x1, bx.x + w); y0 = Math.min(y0, bx.y); y1 = Math.max(y1, bx.y + h);
+      const [bx, an] = pick; boxes.push(bx); grow(bx.x, bx.y, w, h);
+      const tx = an === 'start' ? bx.x : an === 'end' ? bx.x + w : bx.x + w/2;
+      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.8)}" text-anchor="${an}" font-size="${fs}" font-weight="${o.inter ? 700 : 600}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
     }
   }
-  // legend under the map
-  const pad = 36, mapW = x1 - x0, mapH = y1 - y0;
-  const title = opts.title || '';
-  const head = title ? 54 : 18;
-  const cols = Math.max(1, Math.floor(Math.max(mapW, 520) / 270)), rowsN = Math.ceil(D.lines.length / cols), legH = 22 + rowsN * 22;
-  const Wt = Math.max(mapW, 520) + pad*2, Ht = head + mapH + pad + legH + 34;
+  // water: the game's lakes and sea, moved along with the stops around them
+  let water = '';
+  const T = S.game && S.game.terrain;
+  if (opts.water !== false && T && S.game.xf){
+    const wl = waterLevel(), keys = [...P.keys()], cell = [];
+    const m = 80 / k0; // world metres of margin around the network
+    const wpts = keys.map(k => I2W({x:O.get(k).x / k0, y:O.get(k).y / k0}));
+    let wx0 = Infinity, wy0 = Infinity, wx1 = -Infinity, wy1 = -Infinity;
+    for (const w of wpts){ wx0 = Math.min(wx0, w.x); wy0 = Math.min(wy0, w.y); wx1 = Math.max(wx1, w.x); wy1 = Math.max(wy1, w.y); }
+    const span = Math.max(wx1 - wx0, wy1 - wy0) + 2*m, stepN = Math.max(1, Math.round(span / T.step / 90));
+    for (let j = 0; j < T.rows; j += stepN) for (let i = 0; i < T.cols; i += stepN){
+      const h = T.h[j*T.cols + i]; if (h == null || h >= wl) continue;
+      const wx = T.x0 + i*T.step, wy = T.y0 + j*T.step;
+      if (wx < wx0 - m || wx > wx1 + m || wy < wy0 - m || wy > wy1 + m) continue;
+      const q = W2I(wx, wy); let ox = q.x * k0, oy = q.y * k0, sw = 0, dx = 0, dy = 0;
+      // move with the nearby stops (inverse distance weighting)
+      for (const k of keys){ const o = O.get(k), pp = P.get(k), d2 = (o.x - ox)**2 + (o.y - oy)**2 + 400, wgt = 1 / (d2 * d2); sw += wgt; dx += (pp.x - o.x) * wgt; dy += (pp.y - o.y) * wgt; }
+      cell.push([ox + dx / sw, oy + dy / sw, i, j]);
+    }
+    // leave out single stray cells (ponds and noise); keep water that has neighbours
+    const set = new Set(cell.map(c => c[2] + ',' + c[3]));
+    const keep = cell.filter(([, , i, j]) => [[stepN,0],[-stepN,0],[0,stepN],[0,-stepN]].filter(([a, b]) => set.has((i + a) + ',' + (j + b))).length >= 2);
+    cell.length = 0; cell.push(...keep);
+    if (cell.length){
+      const rr = Math.max(4, T.step * stepN * pxPerMSafe() * k0 * 0.85);
+      water = `<g filter="url(#tfoWater)" fill="${C.water}">` + cell.map(([x, y]) => `<circle cx="${f(x)}" cy="${f(y)}" r="${f(rr)}"/>`).join('') + '</g>';
+    }
+  }
+  // header and legend
+  const pad = 40, mapW = x1 - x0, mapH = y1 - y0, nStops = stations.length;
+  const title = opts.title || T_('Network map');
+  const sub = T_('{l} lines · {s} stops', {l:D.lines.length, s:nStops});
+  const head = 92;
+  const Wt = Math.max(mapW, 560) + pad*2;
+  const groups = []; D.lines.forEach(L => { let g = groups.find(x => x.head === L.head); if (!g) groups.push(g = {head:L.head, lines:[]}); g.lines.push(L); });
+  const cols = Math.max(1, Math.floor((Wt - pad*2) / 280)), colW = (Wt - pad*2) / cols;
+  let ly = 0; const legend = [];
+  for (const g of groups){
+    legend.push(`<text x="${pad}" y="${f(ly + 12)}" font-size="10.5" font-weight="800" letter-spacing="1.4" fill="${C.muted}">${esc(T_(g.head).toLocaleUpperCase(LOCALE()))}</text>`);
+    ly += 24;
+    g.lines.forEach((L, i) => {
+      const cx = pad + (i % cols) * colW, cy = ly + Math.floor(i / cols) * 24;
+      const fit = Math.max(8, Math.floor((colW - 90) / 6.6)), nm = L.name.length > fit ? L.name.slice(0, fit - 1) + '…' : L.name;
+      const bw = L.code.length * 6.6 + 10;
+      legend.push(`<line x1="${cx}" y1="${cy}" x2="${cx + 26}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><rect x="${cx + 34}" y="${cy - 7}" width="${f(bw)}" height="14" rx="3.5" fill="${L.color}"/><text x="${f(cx + 34 + bw/2)}" y="${cy + 3.6}" text-anchor="middle" font-size="10" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text><text x="${f(cx + 42 + bw)}" y="${cy + 4}" font-size="12" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`);
+    });
+    ly += Math.ceil(g.lines.length / cols) * 24 + 10;
+  }
+  const legTop = head + mapH + pad, Ht = legTop + 22 + ly + 30;
   const ox = pad - x0 + (Wt - pad*2 - mapW) / 2, oy = head + pad/2 - y0;
-  const leg = D.lines.map((L, i) => {
-    const cx = pad + (i % cols) * ((Wt - pad*2) / cols), cy = head + mapH + pad + 18 + Math.floor(i / cols) * 22;
-    const fit = Math.max(8, Math.floor(((Wt - pad*2) / cols - 50) / 7)); // characters that fit the column
-    const nm = L.name.length > fit ? L.name.slice(0, fit - 1) + '…' : L.name;
-    return `<line x1="${cx}" y1="${cy}" x2="${cx + 26}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><text x="${cx + 36}" y="${cy + 4}" font-size="12" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`;
-  }).join('');
-  const foot = `<text x="${Wt - pad}" y="${Ht - 14}" text-anchor="end" font-size="10.5" fill="${C.muted}">${esc(T('Made with Transit Overlay for Transport Fever 3'))}</text>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(Wt)}" height="${Math.round(Ht)}" viewBox="0 0 ${f(Wt)} ${f(Ht)}" font-family="${font}">
+<defs><filter id="tfoWater" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="5"/><feComponentTransfer><feFuncA type="linear" slope="8" intercept="-3"/></feComponentTransfer></filter></defs>
 <rect width="100%" height="100%" fill="${C.bg}"/>
-${title ? `<text x="${pad}" y="40" font-size="24" font-weight="800" fill="${C.ink}">${esc(title)}</text>` : ''}
-<g transform="translate(${f(ox)} ${f(oy)})">${paths.join('')}${marks.join('')}${labels.join('')}</g>
-<line x1="${pad}" y1="${f(head + mapH + pad)}" x2="${f(Wt - pad)}" y2="${f(head + mapH + pad)}" stroke="${C.rule}"/>
-${leg}${foot}
+<text x="${pad}" y="50" font-size="30" font-weight="800" fill="${C.ink}">${esc(title)}</text>
+<text x="${pad}" y="74" font-size="13" font-weight="500" fill="${C.muted}">${esc(sub)}</text>
+<line x1="${pad}" y1="${head - 2}" x2="${f(Wt - pad)}" y2="${head - 2}" stroke="${C.rule}" stroke-width="1.5"/>
+<clipPath id="tfoMapClip"><rect x="${f(x0 - 20)}" y="${f(y0 - 20)}" width="${f(mapW + 40)}" height="${f(mapH + 40)}" rx="6"/></clipPath>
+<g transform="translate(${f(ox)} ${f(oy)})"><g clip-path="url(#tfoMapClip)">${water}</g>${townEls.join('')}${paths.join('')}${marks.join('')}${badges.join('')}${labels.join('')}</g>
+<line x1="${pad}" y1="${f(legTop)}" x2="${f(Wt - pad)}" y2="${f(legTop)}" stroke="${C.rule}" stroke-width="1.5"/>
+<g transform="translate(0 ${f(legTop + 22)})">${legend.join('')}</g>
+<text x="${f(Wt - pad)}" y="${f(Ht - 14)}" text-anchor="end" font-size="10.5" fill="${C.muted}">${esc(T_('Made with Transit Overlay for Transport Fever 3'))}</text>
 </svg>`;
   return {svg, w:Wt, h:Ht};
   function segBox(u, v, b){
-    // does the stretch u-v pass through box b (with the line's half width)
-    const m = W / 2 + 1, bx = {x:b.x - m, y:b.y - m, w:b.w + 2*m, h:b.h + 2*m};
+    const mm = W / 2 + 1, bx = {x:b.x - mm, y:b.y - mm, w:b.w + 2*mm, h:b.h + 2*mm};
     for (let t = 0; t <= 1; t += 0.05){ const x = u.x + (v.x - u.x)*t, y = u.y + (v.y - u.y)*t; if (x > bx.x && x < bx.x + bx.w && y > bx.y && y < bx.y + bx.h) return true; }
     return false;
   }
 }
-
+function pxPerMSafe(){ try { return pxPerM(); } catch { return 1; } }
+const T_ = (en, vars) => T(en, vars);
 let schemOut = null;
 function schemOpts(){
   const f = schemFilter();
