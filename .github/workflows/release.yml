@@ -6,7 +6,7 @@ name: Release
 # File names carry no version, so these links always point to the newest release:
 #   https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-portable.exe
 #   https://github.com/axelferb/Transport-Fever-3---Transit-Overlay/releases/latest/download/TransitOverlay-linux-x86_64.AppImage
-# The release version comes from desktop/package.json.
+# The release version comes from desktop/package.json; the notes come from that version's section in CHANGELOG.md.
 
 on:
   workflow_dispatch:
@@ -73,6 +73,14 @@ jobs:
           echo "mod.json $json, export.lua $lua, app $app"
           [ "$json" = "$lua" ] && [ "$json" = "$app" ] || { echo "::error::Mod revision differs: mod.json $json, export.lua $lua, app $app"; exit 1; }
 
+      - name: Release notes from CHANGELOG.md
+        run: |
+          v=${{ steps.version.outputs.version }}
+          awk -v h="## $v" '$0==h{f=1;next} /^## /{f=0} f' CHANGELOG.md | sed '/./,$!d' > changes.md
+          [ -s changes.md ] || { echo "::error::CHANGELOG.md has no section '## $v'"; exit 1; }
+          { echo "## What's new"; echo; cat changes.md; echo; echo "## Downloads"; echo; cat .github/release-footer.md; } > notes.md
+          cat notes.md
+
       - name: Zip the mod
         run: cd mod && zip -qr ../dist/transit_overlay-mod.zip transit_overlay
 
@@ -85,9 +93,4 @@ jobs:
             dist/TransitOverlay-portable.exe
             dist/TransitOverlay-linux-x86_64.AppImage
             dist/transit_overlay-mod.zip
-          body: |
-            - **TransitOverlay-portable.exe**: the desktop app for Windows. Run it, no install needed. Windows SmartScreen may warn because it isn't signed: More info → Run anyway.
-            - **TransitOverlay-linux-x86_64.AppImage**: the desktop app for Linux. Make it executable (`chmod +x`) and run it.
-            - **transit_overlay-mod.zip**: the in-game button, for installing by hand. Most players should subscribe on [mod.io](https://mod.io/g/transportfever3/m/transit-overlay) instead.
-
-            Click the Transit Overlay button at the top left of the game screen; the app updates within a couple of seconds.
+          body_path: notes.md
