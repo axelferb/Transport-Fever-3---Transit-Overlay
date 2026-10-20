@@ -115,6 +115,12 @@ function createWindow(){
 
 ipcMain.handle('log-info', () => ({ path: resolveLogPath(), watching: !!watchTimer, lastAt: lastSeen.at, count: lastSeen.count }));
 ipcMain.handle('read-latest', () => readLatest());
+ipcMain.handle('whats-new', () => { // the changelog ships beside the app (extraResources); in development it is the repo's
+  for (const p of [path.join(process.resourcesPath || '', 'CHANGELOG.md'), path.join(__dirname, '..', 'CHANGELOG.md')]){
+    try { return { version: app.getVersion(), notes: fs.readFileSync(p, 'utf8') }; } catch {}
+  }
+  return { version: app.getVersion(), notes: '' };
+});
 ipcMain.handle('check-update', () => checkUpdate());
 ipcMain.handle('set-watch', (_e, on) => { config.watching = !!on; saveConfig(); on ? startWatching() : stopWatching(); return !!watchTimer; });
 ipcMain.handle('choose-log', async () => {

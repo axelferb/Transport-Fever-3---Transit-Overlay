@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('desktop', {
   chooseLog: () => ipcRenderer.invoke('choose-log'),
   saveFile: (name, data) => ipcRenderer.invoke('save-file', name, data),
   checkUpdate: () => ipcRenderer.invoke('check-update'),
+  whatsNew: () => ipcRenderer.invoke('whats-new'),
   onExport: cb => ipcRenderer.on('export', (_e, text) => cb(text)),
 });
