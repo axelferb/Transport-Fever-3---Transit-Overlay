@@ -1932,6 +1932,7 @@ function schemLayout(D, geographic){
       }
     }
   }
+  if (!geographic) schemStraighten(P, edges);
   schemPack(P, edges);
   return {P, edges, O, k0};
 }
@@ -1974,14 +1975,34 @@ function schemPack(P, edges){
   for (const c of G) if (c.dx) for (const k of c.keys){ const p = P.get(k); p.x += c.dx; p.y += c.dy; }
 }
 /* One stretch drawn the metro way: a straight run along one of the eight directions, then one bend. */
+/* Stretches that are almost level, upright or at 45° are made exactly so, moving both stops a little,
+   so the map has clean straight runs instead of small kinks. */
+function schemStraighten(P, edges){
+  for (let it = 0; it < 120; it++){
+    let moved = 0;
+    for (const [a, b] of edges){
+      const pa = P.get(a), pb = P.get(b), dx = pb.x - pa.x, dy = pb.y - pa.y, ax = Math.abs(dx), ay = Math.abs(dy), L = Math.hypot(dx, dy);
+      if (L < 1) continue;
+      let cx = 0, cy = 0;
+      if (ay < ax * 0.22) cy = dy;                                   // almost level
+      else if (ax < ay * 0.22) cx = dx;                              // almost upright
+      else if (Math.abs(ax - ay) < Math.max(ax, ay) * 0.22){ const m = (ax + ay) / 2; cx = dx - Math.sign(dx)*m; cy = dy - Math.sign(dy)*m; } // almost 45°
+      else continue;
+      if (Math.abs(cx) + Math.abs(cy) < 0.05) continue;
+      pa.x += cx / 2 * 0.6; pa.y += cy / 2 * 0.6; pb.x -= cx / 2 * 0.6; pb.y -= cy / 2 * 0.6; moved++;
+    }
+    if (!moved) break;
+  }
+}
 function schemRoute(a, b){
   const dx = b.x - a.x, dy = b.y - a.y, ax = Math.abs(dx), ay = Math.abs(dy);
-  if (ax < 0.5 || ay < 0.5 || Math.abs(ax - ay) < 0.5) return [a, b];
+  // nearly straight or nearly diagonal: draw it straight, a tiny bend only reads as a wobble
+  const tol = Math.max(6, Math.hypot(dx, dy) * 0.12);
+  if (ax < tol || ay < tol || Math.abs(ax - ay) < tol) return [a, b];
   const d = Math.min(ax, ay), sx = Math.sign(dx), sy = Math.sign(dy);
-  // diagonal part first when leaving, straight part last; the bend sits where it looks most natural
-  const m = ax > ay ? {x:a.x + sx*(ax - d) / 2, y:a.y} : {x:a.x, y:a.y + sy*(ay - d) / 2};
-  const n = ax > ay ? {x:m.x + sx*d, y:b.y} : {x:b.x, y:m.y + sy*d};
-  return [a, m, n, b];
+  // one bend: the diagonal part, then the straight part
+  const m = {x:a.x + sx*d, y:a.y + sy*d};
+  return [a, m, b];
 }
 function offsetPath(pts, off){
   if (!off) return pts;
@@ -2021,11 +2042,23 @@ function schemSVG(opts){
   const C = dark
     ? {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
     : {bg:'#F3F2EE', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#D9D6CE', box:'rgba(40,48,40,0.045)', boxLine:'rgba(60,70,60,0.22)', water:'#CADCE6', town:'#5E6670'};
-  const W = 6.5, GAP = 1.5, RAD = 16;
+  const W = 6.5, GAP = 1.5, RAD = 10;
   const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const f = v => v.toFixed(1);
   // short codes per kind of line, like R1, T2, B3
+  const used = new Set();
+  // every line its own, clearly different colour on the diagram
+  const rgb = h => { const n = parseInt(String(h).replace('#', '').slice(0, 6), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const dist = (a, b) => { const p = rgb(a), q = rgb(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); };
+  const usedC = [];
+  D.lines.forEach(L => {
+    if (usedC.some(c => dist(c, L.color) < 100)){
+      const free = PALETTE.concat(['#F2C200','#00A3E0','#9E9D24','#EC5FA0','#1A237E','#6D4C41','#26A69A','#AB47BC','#FF7043','#7CB342']).filter(c => !usedC.includes(c)).sort((a, b) => Math.min(...usedC.map(c => dist(c, b))) - Math.min(...usedC.map(c => dist(c, a))))[0];
+      if (free) L.color = free;
+    }
+    usedC.push(L.color);
+  });
   const seen = {};
   D.lines.forEach(L => { const m = SCHEM_MODE[L.mode] || SCHEM_MODE.bus; seen[m.code] = (seen[m.code] || 0) + 1; L.code = m.code + seen[m.code]; L.head = m.head; });
   const onEdge = new Map();
