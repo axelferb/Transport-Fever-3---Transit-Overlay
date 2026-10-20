@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.10.0
+- Coverage: choose how your existing stops count. Ignore them to plan a network from scratch, or ghost them to see what they reach as a green ring. Optionally only for some kinds of lines, such as buses.
+
 ## 2.9.0
 - Schematic map has a new look: town boxes, straighter lines with rounded bends, line badges at the ends, a distinct colour per line and a legend grouped by mode.
 - Light rail and other lines that run on their own tracks now follow those tracks instead of snapping to nearby roads.

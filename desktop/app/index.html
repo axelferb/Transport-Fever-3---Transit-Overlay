@@ -357,6 +357,10 @@ h3.sub{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
       <h2>Coverage</h2>
       <div class="field"><label for="gCov">Show</label>
         <select id="gCov"><option value="gaps">Gaps only</option><option value="all">Reached and gaps</option><option value="off">Nothing</option></select></div>
+      <div class="field"><label for="gExist">Existing stops</label>
+        <select id="gExist"><option value="on">Count them</option><option value="ghost">Ghost</option><option value="off">Ignore</option></select></div>
+      <div id="gExistModes" class="sc-modes" hidden></div>
+      <p class="info" id="gExistInfo" hidden></p>
       <div id="gCats" class="cats"></div>
       <div class="field"><label for="gRadii">Circles</label>
         <select id="gRadii"><option value="plan">My new stops</option><option value="all">All stops</option><option value="off">None</option></select></div>
@@ -612,6 +616,12 @@ const STRINGS = {de:{
   "Reached and gaps": "Erreicht und Lücken",
   "Nothing": "Nichts",
   "Circles": "Kreise",
+  "Existing stops": "Bestehende Haltestellen",
+  "Count them": "Mitzählen",
+  "Ghost": "Schemenhaft",
+  "Ignore": "Ignorieren",
+  "Coverage from these stops is not counted, so you can plan the network from scratch.": "Die Abdeckung dieser Haltestellen zählt nicht, so kannst du das Netz von Grund auf neu planen.",
+  "Coverage from these stops is not counted. Places only they reach get a green ring, so you can see what you are replacing.": "Die Abdeckung dieser Haltestellen zählt nicht. Orte, die nur sie erreichen, bekommen einen grünen Ring, damit du siehst, was du ersetzt.",
   "My new stops": "Nur neue",
   "All stops": "Alle",
   "None": "Keine",
@@ -1640,7 +1650,7 @@ function click(p, e){
         commit(); const id = addNode(at.x, at.y);
         S.stations[id] = {name:'', side:'auto', solo:true, cargo: activeTab === 'cargo'};
         sel = {line:null, branch:null, node:id}; ui(); draw();
-        const r = planCoverage().per[id], cov = gameCovered();
+        const r = planCoverage().per[id], cov = effCovered();
         let add = 0; if (r) for (const b of S.game.buildings) if (b[4] === 0 && r.has(b[0]) && !isServed(b, cov)) add += b[3];
         toast(add ? T('This stop would reach {n} residents no game stop reaches', {n:add.toLocaleString(LOCALE())}) : 'Stop added. It reaches no new residents here.');
         return;
@@ -2432,6 +2442,24 @@ function gameCovered(){
   for (const k in S.game.catch) if (groups.has(k)) S.game.catch[k].forEach(id => covCache.add(id));
   return covCache;
 }
+/* Existing stops: count them (on), or leave their coverage out to plan from scratch (ghost shows what
+   they reach as a green ring, off hides it). Optionally only for some kinds of lines. Not saved. */
+let existView = {mode:'on', modes:null}, effCache = {sig:null};
+function paxGameModes(){ return ORDER.filter(m => S.game.lines.some(l => isPax(l) && gameMode(l) === m)); }
+function existState(){
+  const sig = existView.mode + '#' + (existView.modes ? existView.modes.join(',') : '*') + '#' + S.game.at;
+  if (effCache.sig === sig) return effCache;
+  const aff = existView.modes ? new Set(existView.modes) : null, kept = new Set(), all = new Set(), cov = new Set();
+  S.game.lines.forEach(l => {
+    if (!isPax(l)) return;
+    const keep = existView.mode === 'on' || (aff && !aff.has(gameMode(l)));
+    l.stops.forEach(s => { all.add(String(s)); if (keep) kept.add(String(s)); });
+  });
+  for (const k in S.game.catch) if (kept.has(k)) S.game.catch[k].forEach(id => cov.add(id));
+  return effCache = {sig, kept, all, cov};
+}
+function effCovered(){ return existView.mode === 'on' ? gameCovered() : existState().cov; }
+const groupIgnored = sg => existView.mode !== 'on' && sg != null && existState().all.has(String(sg)) && !existState().kept.has(String(sg));
 const isServed = (b, cov) => cov.has(b[0]) || (b[6] != null && cov.has(b[6]));
 /* 0 = not reached, 1 = reached by a game stop, 2 = reached only by a stop you planned */
 function servedBy(b, cov, plan){ if (isServed(b, cov)) return 1; return plan.has(b[0]) ? 2 : 0; }
@@ -2511,17 +2539,18 @@ function drawRadii(g, u){
   for (const id of Object.keys(S.stations)){
     const st = S.stations[id], n = S.nodes[id]; if (!n || isCargoStop(+id)) continue;
     if (st.game && mode !== 'all') continue;
+    const ign = st.game && groupIgnored(st.sg); if (ign && existView.mode === 'off') continue;
     const r = (st.game ? (st.r || 0) : (+st.radius || 160)) * k; if (!r) continue;
     g.beginPath(); g.arc(n.x, n.y, r, 0, Math.PI*2);
-    g.fillStyle = st.game ? 'rgba(40,40,40,0.04)' : 'rgba(242,169,0,0.10)'; g.fill();
-    g.setLineDash(st.game ? [] : [6*u, 4*u]); g.lineWidth = Math.max(1, 1.4*u);
+    g.fillStyle = ign ? 'rgba(40,40,40,0)' : st.game ? 'rgba(40,40,40,0.04)' : 'rgba(242,169,0,0.10)'; g.fill();
+    g.setLineDash(st.game && !ign ? [] : [6*u, 4*u]); g.lineWidth = Math.max(1, 1.4*u);
     g.strokeStyle = st.game ? 'rgba(40,40,40,0.28)' : 'rgba(214,140,0,0.9)'; g.stroke(); g.setLineDash([]);
   }
 }
 const CATS = [{label:'Homes', unit:'residents', color:'#D6282E'}, {label:'Businesses', unit:'jobs', color:'#E07B00'}, {label:'Industry', unit:'jobs', color:'#7B3FA0'}];
 const covTypes = () => { const t = S.settings.covTypes; return Array.isArray(t) && t.length === 3 ? t : [true, false, false]; };
 function catTotals(){
-  const cov = gameCovered(), plan = planCoverage().set, out = CATS.map(() => ({people:0, served:0, planned:0}));
+  const cov = effCovered(), plan = planCoverage().set, out = CATS.map(() => ({people:0, served:0, planned:0}));
   for (const b of S.game.buildings){ const c = out[b[4]]; if (!c || !inFocus(b)) continue; c.people += b[3]; const sv = servedBy(b, cov, plan); if (sv) c.served += b[3]; if (sv === 2) c.planned += b[3]; }
   return out;
 }
@@ -2577,7 +2606,7 @@ function shortestPath(src, dst, k, pref){
   return path.reverse();
 }
 function townStats(){
-  const cov = gameCovered(), plan = planCoverage().set, t = {}, types = covTypes();
+  const cov = effCovered(), plan = planCoverage().set, t = {}, types = covTypes();
   for (const b of S.game.buildings){
     if (!types[b[4]]) continue;
     const r = t[b[5]] || (t[b[5]] = {id:b[5], name:S.game.towns[b[5]] || ('Town ' + b[5]), people:0, served:0});
@@ -3121,10 +3150,11 @@ function drawCoverage(g, u){
   if (!S.game || !S.game.xf) return;
   const mode = S.settings.coverage; if (!mode || mode === 'off') return;
   if (S.settings.gapHeat !== false) drawGapHeat(g);
-  const cov = gameCovered(), plan = planCoverage().set, k = pxPerM(), all = mode === 'all', types = covTypes();
+  const cov = effCovered(), plan = planCoverage().set, k = pxPerM(), all = mode === 'all', types = covTypes();
+  const full = existView.mode === 'ghost' ? gameCovered() : null;
   for (const b of S.game.buildings){
     const t = b[4]; if (!types[t] || !inFocus(b)) continue;
-    const sv = servedBy(b, cov, plan), served = sv > 0;
+    const sv = servedBy(b, cov, plan), served = sv > 0, ghost = !served && full && isServed(b, full);
     if (sv === 1 && !all) continue;
     const p = W2I(b[1], b[2]);
     const r = Math.max(2.2*u, k * (5 + Math.sqrt(Math.max(1, b[3])) * 2));
@@ -3133,8 +3163,8 @@ function drawCoverage(g, u){
     else if (t === 2){ g.moveTo(p.x, p.y - r*1.15); g.lineTo(p.x + r*1.15, p.y); g.lineTo(p.x, p.y + r*1.15); g.lineTo(p.x - r*1.15, p.y); g.closePath(); }
     else g.arc(p.x, p.y, r, 0, Math.PI*2);
     g.fillStyle = served ? 'rgba(21,148,71,0.75)' : CATS[t].color; g.globalAlpha = served ? 1 : 0.88; g.fill(); g.globalAlpha = 1;
-    g.lineWidth = Math.max(0.6*u, r*0.25); g.strokeStyle = sv === 2 ? '#F2A900' : 'rgba(255,255,255,0.9)';
-    if (sv === 2) g.lineWidth = Math.max(1.2*u, r*0.45);
+    g.lineWidth = Math.max(0.6*u, r*0.25); g.strokeStyle = sv === 2 ? '#F2A900' : ghost ? '#159447' : 'rgba(255,255,255,0.9)';
+    if (sv === 2 || ghost) g.lineWidth = Math.max(1.2*u, r*0.45);
     g.stroke();
   }
 }
@@ -3146,8 +3176,8 @@ function gapRadius(){ // the usual reach of a bus or tram stop in this save
   return rs.length ? rs[Math.floor(rs.length / 2)] : 160;
 }
 function gapData(){
-  const cov = gameCovered(), pc = planCoverage(), types = covTypes();
-  const sig = [S.game.at, pc.sig, S.game.focus, types.join(), S.settings.roadSnap !== false].join('#');
+  const cov = effCovered(), pc = planCoverage(), types = covTypes();
+  const sig = [S.game.at, pc.sig, S.game.focus, types.join(), S.settings.roadSnap !== false, existView.mode === 'on' ? 'on' : existState().sig].join('#');
   if (gapCache.sig === sig) return gapCache;
   const pts = S.game.buildings.filter(b => types[b[4]] && inFocus(b) && b[3] > 0 && !servedBy(b, cov, pc.set));
   const R = gapRadius(), CELL = Math.max(20, R / 4), rr = Math.ceil(R / CELL), spots = [];
@@ -3224,6 +3254,27 @@ function addSpotStop(s){
   S.stations[id] = {name:'', side:'auto', solo:true};
   sel = {line:null, branch:null, node:id}; ui(); draw();
   toast(T('Stop added. It reaches about {n} people no stop reaches today.', {n:s.total.toLocaleString(LOCALE())}));
+}
+function renderExist(){
+  setVal($('#gExist'), existView.mode);
+  const box = $('#gExistModes'), modes = paxGameModes(), on = existView.mode !== 'on';
+  box.hidden = !on || modes.length < 2; box.textContent = '';
+  $('#gExistInfo').hidden = !on;
+  if (!on) return;
+  $('#gExistInfo').textContent = T(existView.mode === 'ghost' ? 'Coverage from these stops is not counted. Places only they reach get a green ring, so you can see what you are replacing.' : 'Coverage from these stops is not counted, so you can plan the network from scratch.');
+  if (modes.length < 2) return;
+  const sel = existView.modes || modes;
+  for (const m of modes){
+    const lab = document.createElement('label'); lab.className = 'check-row';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sel.includes(m);
+    cb.addEventListener('change', () => {
+      const cur = new Set(existView.modes || modes); if (cb.checked) cur.add(m); else cur.delete(m);
+      existView.modes = modes.every(x => cur.has(x)) ? null : modes.filter(x => cur.has(x));
+      ui(); draw();
+    });
+    lab.append(cb, document.createTextNode(T(MODES[m].label)));
+    box.append(lab);
+  }
 }
 function renderSpots(){
   const G = S.game, D = gapData(), types = covTypes(), any = types.some(Boolean);
@@ -3448,6 +3499,7 @@ function gameUI(){
   $('#gColors').checked = !!S.settings.gameColors;
   $('#gRebuild').hidden = !G.xf || S.lines.some(l => l.gameId);
   setVal($('#gCov'), S.settings.coverage || 'gaps');
+  renderExist();
   setVal($('#gRadii'), S.settings.radii || 'plan');
   setVal($('#gReach'), S.settings.reach || 'circle');
   $('#gMapBtn').hidden = bg.kind === 'game';
@@ -3796,7 +3848,7 @@ function ui(){
       if (st.game) $('#stReach').textContent = T('Stop from the game · reach {r} m', {r:st.r || '?'});
       else {
         setVal($('#stRadius'), st.radius || 160);
-        const mine = planCoverage().per[n] || new Set(), cov = gameCovered();
+        const mine = planCoverage().per[n] || new Set(), cov = effCovered();
         const add = [0, 0, 0], tot = [0, 0, 0];
         for (const b of S.game.buildings){ if (!mine.has(b[0]) || !CATS[b[4]]) continue; tot[b[4]] += b[3]; if (!isServed(b, cov)) add[b[4]] += b[3]; }
         $('#stReach').textContent = T('Reaches {a} residents and {b} jobs. New: {c} residents, {d} jobs that no game stop reaches.', {a:tot[0], b:tot[1] + tot[2], c:add[0], d:add[1] + add[2]});
@@ -3950,6 +4002,7 @@ $('#cHeat').addEventListener('change', e => { S.settings.cargoHeat = e.target.ch
 $('#cSpotsOn').addEventListener('change', e => { S.settings.cargoSpots = e.target.checked; ui(); draw(); autosave(); });
 $('#gSpotsOn').addEventListener('change', e => { S.settings.gapSpots = e.target.checked; ui(); draw(); autosave(); });
 $('#gCov').addEventListener('change', e => { S.settings.coverage = e.target.value; ui(); draw(); });
+$('#gExist').addEventListener('change', e => { existView.mode = e.target.value; ui(); draw(); });
 
 /* ---------- desktop app bridge (Electron) ---------- */
 let deskInfo = null, deskLastAt = null;
