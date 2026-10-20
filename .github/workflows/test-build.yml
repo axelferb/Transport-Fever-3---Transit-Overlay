@@ -1,0 +1,32 @@
+name: Test build
+
+# Builds the Windows app from a work branch without publishing a release.
+# The exe is attached to the workflow run as an artifact (Actions → this run → Artifacts).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["schematic-v2", "test/**"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Build the app
+        working-directory: desktop
+        shell: bash
+        run: |
+          npm ci
+          npx electron-builder --win portable --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TransitOverlay-test-${{ github.ref_name }}
+          path: desktop/dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
