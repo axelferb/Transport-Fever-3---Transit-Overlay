@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.10.0
+- New look: warmer colours, bigger controls, cards in the side panel, and a legend on the map.
+- Theme setting: light, dark, or follow the system (⚙ Settings → Map display).
+- Coverage: reached buildings are green, unreached orange-red, and what a planned stop would add is light green; the stop card says how many people it gives a stop.
+- Lines: the selected line's mode and colour are picked from pills and swatches.
+- Schematic map is a tab.
+- Cargo: "Shops" and "Town industry"; the legend names the goods you picked.
+- After an update, the app shows what changed.
+
 ## 2.9.0
 - Schematic map has a new look: town boxes, straighter lines with rounded bends, line badges at the ends, a distinct colour per line and a legend grouped by mode.
 - Light rail and other lines that run on their own tracks now follow those tracks instead of snapping to nearby roads.
