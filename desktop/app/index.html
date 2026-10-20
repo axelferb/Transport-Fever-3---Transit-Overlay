@@ -154,16 +154,21 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
 .sc-modes{display:flex;flex-wrap:wrap;gap:6px}
 .sc-chip{display:inline-flex;align-items:center;gap:7px;border:2px solid var(--rule);background:var(--panel);border-radius:999px;height:32px;padding:0 12px 0 8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap}
 .sc-chip:has(input:checked){background:var(--ink);border-color:var(--ink);color:var(--panel)}
-.sc-chip input{margin:0;accent-color:var(--good)}
-.sc-pick summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sc-chip input{margin:0;width:18px;height:18px;accent-color:var(--good)}
+.sc-pick summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);list-style:none}
+.sc-pick summary::-webkit-details-marker{display:none}
+.sc-pick summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);margin-right:2px;flex:none;transition:transform .15s}
+.sc-pick[open] summary::before{transform:rotate(45deg)}
+.sc-pick summary > span{flex:1}
 .sc-all{border:0;background:transparent;color:var(--focus);font:inherit;font-size:12px;cursor:pointer;padding:2px 0}
 .sc-lines{display:flex;flex-direction:column;gap:1px;margin-top:6px;max-height:220px;overflow-y:auto;background:var(--panel);border:2px solid var(--rule);border-radius:12px;padding:6px}
-.sc-line{display:grid;grid-template-columns:auto 30px minmax(0,1fr);align-items:center;gap:8px;font-size:13px;padding:4px 6px;border-radius:8px;cursor:pointer}
+.sc-line{display:grid;grid-template-columns:auto 30px auto minmax(0,1fr);align-items:center;gap:8px;font-size:13px;padding:4px 6px;border-radius:8px;cursor:pointer}
 .sc-line:hover{background:var(--bg)}
 .sc-line input{margin:0;accent-color:var(--good);width:18px;height:18px}
 .sc-line.off{opacity:.45}
 .sc-line .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sc-sw{height:5px;border-radius:3px}
+.sc-code{font-size:10px;font-weight:800;border-radius:5px;padding:1px 5px;min-width:14px;text-align:center}
 .sc-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 .sc-preview{background:var(--well);padding:28px;overflow:auto;display:flex;align-items:center;justify-content:center}
 .sc-preview svg{max-width:100%;max-height:100%;box-shadow:0 6px 24px rgba(43,36,25,.18);border-radius:10px}
@@ -215,7 +220,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
 .field input,.field select{box-sizing:border-box;min-width:0;max-width:100%}
 .rail{overflow-x:hidden}
 .field label{color:var(--muted);font-size:13px;font-weight:600}
-.field input[type=text],.field select,.sc-field input,.sc-field select{width:100%;border:2px solid var(--rule);background:var(--panel);color:var(--ink);border-radius:10px;height:36px;padding:0 12px;font-weight:600;font-size:14px;box-shadow:0 2px 0 var(--rule);box-sizing:border-box}
+.field input[type=text],.field select,.sc-field input:not([type=checkbox]),.sc-field select{width:100%;border:2px solid var(--rule);background:var(--panel);color:var(--ink);border-radius:10px;height:36px;padding:0 12px;font-weight:600;font-size:14px;box-shadow:0 2px 0 var(--rule);box-sizing:border-box}
 .field select,.sc-field select{appearance:none;-webkit-appearance:none;background-image:var(--chev);background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
 .field input[type=number]{width:100%;border:2px solid var(--rule);background:var(--panel);color:var(--ink);border-radius:10px;height:36px;padding:0 12px;font-weight:600;box-shadow:0 2px 0 var(--rule);box-sizing:border-box;font-variant-numeric:tabular-nums}
 .field input[type=color]{width:48px;height:36px;border:2px solid var(--rule);border-radius:10px;background:var(--panel);padding:3px;cursor:pointer;box-shadow:0 2px 0 var(--rule)}
@@ -223,12 +228,18 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
 .check{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600}
 .seg{display:flex;gap:6px}
 .field .seg{grid-column:1 / -1}
+.seg.wrap{flex-wrap:wrap}
+.seg.wrap button{flex:0 1 auto;padding:0 12px}
+.swatches{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.swatches button{width:30px;height:30px;border-radius:9px;border:2px solid transparent;cursor:pointer;box-sizing:border-box;padding:0}
+.swatches button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--panel)}
+.swatches input[type=color]{width:30px;height:30px;padding:2px;border-radius:9px;box-shadow:none}
 .seg button{flex:1;border:2px solid var(--rule);background:var(--panel);color:var(--ink);height:32px;padding:0 10px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 .check input{accent-color:var(--good);width:20px;height:20px;margin:0;flex:none}
 .row{display:flex;flex-wrap:wrap;gap:8px}
 .info{margin:0;color:var(--muted);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
-#stReach{font-size:14px;font-weight:600;color:var(--good-ink)}
+.payoff{margin:0;font-size:22px;font-weight:800;line-height:1.1;color:var(--good-ink)}
 .keys dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:13px;align-items:center}
 .keys dt{font-size:12px;font-weight:700;background:var(--bg);border:2px solid var(--rule);border-bottom-width:3px;border-radius:6px;padding:1px 7px;justify-self:start}
 .keys dd{margin:0;color:var(--muted)}
@@ -257,13 +268,13 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
     <button role="tab" data-tab="lines" title="Plan and draw lines"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 18 10 12h10"/><path d="M4 11l3-3h13"/></svg>Lines</button>
     <button role="tab" data-tab="coverage" title="See what stops reach"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg>Coverage</button>
     <button role="tab" data-tab="cargo" id="tabCargo" title="Industries and deliveries"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-4 9 4-9 4z"/><path d="M3 8v8l9 4 9-4V8"/><path d="M12 12v8"/></svg>Cargo</button>
+    <button role="tab" id="schemBtn" aria-selected="false" title="A metro-style diagram of your lines, to save and share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16h6l4-8h6"/><circle cx="10" cy="16" r="2"/><circle cx="14" cy="8" r="2"/></svg>Schematic</button>
   </nav>
   <div class="spacer"></div>
   <label class="area" id="topAreaWrap" hidden><span>Area</span><select id="gArea"></select></label>
   <div class="upd" id="updPill" hidden><a id="updLink" href="#" target="_blank" rel="noopener"></a><button id="updClose" title="Hide until the next version" aria-label="Hide update notice">×</button></div>
   <div class="upd warn" id="modPill" hidden><a id="modLink" href="#" target="_blank" rel="noopener"></a><button id="modClose" title="Hide for now" aria-label="Hide mod notice">×</button></div>
   <button class="chip" id="liveChip" hidden title="Game data · open settings"></button>
-  <button class="btn" id="schemBtn" title="A metro-style diagram of your lines, to save and share">Schematic map</button>
   <button class="btn primary" id="exportBtn">Export PNG</button>
   <button class="btn icon gear" id="gearBtn" title="Settings" aria-label="Settings" aria-pressed="false">⚙</button>
   <input type="file" id="fileIn" accept="image/*,.json,application/json" hidden>
@@ -312,8 +323,10 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
       <h2>Selected line</h2>
       <div class="field"><label for="lnName">Name</label><input type="text" id="lnName" autocomplete="off"></div>
       <div class="field"><label for="lnMode">Mode</label>
-        <select id="lnMode"><option value="subway">Subway</option><option value="train">Train</option><option value="tram">Tram</option><option value="bus">Bus</option><option value="ferry">Ferry</option></select></div>
-      <div class="field"><label for="lnColor">Color</label><input type="color" id="lnColor"></div>
+        <select id="lnMode" hidden><option value="subway">Subway</option><option value="train">Train</option><option value="tram">Tram</option><option value="bus">Bus</option><option value="ferry">Ferry</option></select>
+        <div class="seg wrap" id="lnModeSeg" role="group" aria-label="Mode"><button type="button" data-mode="subway" aria-pressed="false">Subway</button><button type="button" data-mode="train" aria-pressed="false">Train</button><button type="button" data-mode="tram" aria-pressed="false">Tram</button><button type="button" data-mode="bus" aria-pressed="false">Bus</button><button type="button" data-mode="ferry" aria-pressed="false">Ferry</button></div></div>
+      <div class="field"><label for="lnColor">Color</label>
+        <div class="swatches" id="lnSwatches" role="group" aria-label="Colour"><button type="button" data-color="#F07C1C" aria-label="Orange" style="background:#F07C1C"></button><button type="button" data-color="#D6282E" aria-label="Red" style="background:#D6282E"></button><button type="button" data-color="#B8206A" aria-label="Magenta" style="background:#B8206A"></button><button type="button" data-color="#6E3FA3" aria-label="Purple" style="background:#6E3FA3"></button><button type="button" data-color="#1F5FAD" aria-label="Blue" style="background:#1F5FAD"></button><button type="button" data-color="#1797A6" aria-label="Teal" style="background:#1797A6"></button><button type="button" data-color="#159447" aria-label="Green" style="background:#159447"></button><button type="button" data-color="#8A6A3C" aria-label="Brown" style="background:#8A6A3C"></button><button type="button" data-color="#2B2419" aria-label="Black" style="background:#2B2419"></button><input type="color" id="lnColor" title="Any other colour" aria-label="Any other colour"></div></div>
       <div class="row">
         <button class="btn" id="lnCont" title="Then click a point on this line to split off a branch, or its end to extend it">Draw branch</button>
         <button class="btn danger" id="lnDel">Delete line</button>
@@ -338,6 +351,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
         <div class="field"><label for="stSide">Label</label>
           <select id="stSide"><option value="auto">Automatic</option><option value="e">Right</option><option value="w">Left</option><option value="n">Above</option><option value="s">Below</option><option value="none">Hidden</option></select></div>
         <div class="field" id="stRadiusRow"><label for="stRadius">Reach (m)</label><input type="number" id="stRadius" min="50" max="1000" step="10"></div>
+        <p class="payoff" id="stPayoff" hidden></p>
         <p class="info" id="stReach"></p>
         <label class="check" id="stBadgesRow"><input type="checkbox" id="stBadges"> Show line badges</label>
       </div>
@@ -424,8 +438,8 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
         <select id="cView"><option value="problems">Problems only</option><option value="all">Everything</option><option value="off">Nothing</option></select></div>
       <div class="field"><label for="cGood">Goods</label><select id="cGood"></select></div>
       <label class="check"><input type="checkbox" id="cInd"> Industries ■</label>
-      <label class="check"><input type="checkbox" id="cBiz"> Commercial buildings ▲</label>
-      <label class="check"><input type="checkbox" id="cTind"> Town industrial buildings ◆</label>
+      <label class="check"><input type="checkbox" id="cBiz"> Shops ▲</label>
+      <label class="check"><input type="checkbox" id="cTind"> Town industry ◆</label>
       <p class="legend-key"><span class="k" style="background:#2E9E5B"></span>supplied <span class="k" style="background:#F2A900"></span>reached, missing <span class="k" style="background:#D9532B"></span>no cargo stop <span class="k" id="cSrcKey" style="background:#2F6FD6"></span><span id="cSrcTxt">makes it</span></p>
       <p class="info" id="cSummary"></p>
       <h3 class="sub" id="cSpotsHead">Best spots for a new cargo stop</h3>
@@ -518,7 +532,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
     <label class="check-row"><input type="checkbox" id="scNames" checked> Station names</label>
     <label class="check-row"><input type="checkbox" id="scPlanned" checked> Lines I drew myself (dashed)</label>
     <div class="sc-field"><span>Show</span><div class="sc-modes" id="scModes"></div></div>
-    <details class="sc-pick">
+    <details class="sc-pick" open>
       <summary><span id="scLinesHead">Lines</span><button type="button" class="sc-all" id="scAll">Show all</button></summary>
       <div class="sc-lines" id="scLines"></div>
     </details>
@@ -571,6 +585,13 @@ const STRINGS = {de:{
   "Schematic map": "Netzplan",
   "Export PNG": "PNG exportieren",
   "Game connected": "Spiel verbunden",
+  "Schematic": "Netzplan",
+  "Gets {g}": "Bekommt {g}",
+  "Has a cargo stop, no {g} arrive": "Hat eine Frachthaltestelle, aber {g} kommt nicht an",
+  "No cargo stop in reach": "Keine Frachthaltestelle erreichbar",
+  "Makes {g}": "Stellt {g} her",
+  "+{n} people get a stop": "+{n} Menschen bekommen eine Haltestelle",
+  "No one new is reached here": "Hier wird niemand Neues erreicht",
   "Has a stop nearby": "Haltestelle in der Nähe",
   "No stop in reach": "Keine Haltestelle erreichbar",
   "Reached by your new stop": "Von deiner neuen Haltestelle erreicht",
@@ -702,8 +723,8 @@ const STRINGS = {de:{
   "Everything": "Alles",
   "Goods": "Güter",
   "Industries ■": "Industrien ■",
-  "Commercial buildings ▲": "Gewerbegebäude ▲",
-  "Town industrial buildings ◆": "Industriegebäude in Städten ◆",
+  "Shops ▲": "Läden ▲",
+  "Town industry ◆": "Industrie in Städten ◆",
   "supplied": "beliefert",
   "reached, missing": "erreicht, unvollständig beliefert",
   "no cargo stop": "keine Frachthaltestelle",
@@ -2293,7 +2314,7 @@ function schemSVG(opts){
 <g transform="translate(0 ${f(legTop + 22)})">${legend.join('')}</g>
 <text x="${f(Wt - pad)}" y="${f(Ht - 14)}" text-anchor="end" font-size="10.5" fill="${C.muted}">${esc(T_('Made with Transit Overlay for Transport Fever 3'))}</text>
 </svg>`;
-  return {svg, w:Wt, h:Ht};
+  return {svg, w:Wt, h:Ht, lines:Object.fromEntries(D.lines.map(L => [L.li, {color:L.color, code:L.code}]))};
   function segBox(u, v, b){
     const mm = W / 2 + 1, bx = {x:b.x - mm, y:b.y - mm, w:b.w + 2*mm, h:b.h + 2*mm};
     for (let t = 0; t <= 1; t += 0.05){ const x = u.x + (v.x - u.x)*t, y = u.y + (v.y - u.y)*t; if (x > bx.x && x < bx.x + bx.w && y > bx.y && y < bx.y + bx.h) return true; }
@@ -2322,9 +2343,10 @@ function schemFilterUI(){
   for (const m of modes){
     const lab = document.createElement('label'); lab.className = 'sc-chip';
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !f.offModes.includes(m);
-    cb.addEventListener('change', () => { f.offModes = cb.checked ? f.offModes.filter(x => x !== m) : f.offModes.concat(m); autosave(); schemFilterUI(); schemPreview(); });
+    cb.addEventListener('change', () => { f.offModes = cb.checked ? f.offModes.filter(x => x !== m) : f.offModes.concat(m); autosave(); schemPreview(); schemFilterUI(); });
     const n = lines.filter(l => l.mode === m).length;
-    lab.append(cb, document.createTextNode(T(MODES[m].label) + ' ' + n));
+    const cnt = document.createElement('small'); cnt.textContent = n; cnt.style.opacity = '.7';
+    lab.append(cb, document.createTextNode(T(MODES[m].label) + ' '), cnt);
     mbox.append(lab);
   }
   const lbox = $('#scLines'); lbox.textContent = '';
@@ -2332,10 +2354,12 @@ function schemFilterUI(){
     const lab = document.createElement('label'); lab.className = 'sc-line';
     const offMode = f.offModes.includes(l.mode);
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !offMode && !f.offLines.includes(String(l.id)); cb.disabled = offMode;
-    cb.addEventListener('change', () => { const id = String(l.id); f.offLines = cb.checked ? f.offLines.filter(x => x !== id) : f.offLines.concat(id); autosave(); const top = $('#scLines').scrollTop; schemFilterUI(); $('#scLines').scrollTop = top; schemPreview(); });
-    const sw = document.createElement('span'); sw.className = 'sc-sw'; sw.style.background = l.color;
+    cb.addEventListener('change', () => { const id = String(l.id); f.offLines = cb.checked ? f.offLines.filter(x => x !== id) : f.offLines.concat(id); autosave(); const top = $('#scLines').scrollTop; schemPreview(); schemFilterUI(); $('#scLines').scrollTop = top; });
+    const A = schemOut && schemOut.lines && schemOut.lines[S.lines.indexOf(l)];
+    const sw = document.createElement('span'); sw.className = 'sc-sw'; sw.style.background = A ? A.color : l.color;
+    const code = document.createElement('b'); code.className = 'sc-code'; code.textContent = A ? A.code : ''; code.style.background = A ? A.color : 'transparent'; code.style.color = A ? inkOn(A.color) : 'inherit';
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.name || T('Untitled'); nm.title = l.name || '';
-    lab.append(cb, sw, nm); if (offMode) lab.classList.add('off');
+    lab.append(cb, sw, code, nm); if (offMode) lab.classList.add('off');
     lbox.append(lab);
   }
   $('#scLinesHead').textContent = T('Lines ({on} of {n})', {on:lines.filter(l => !f.offModes.includes(l.mode) && !f.offLines.includes(String(l.id))).length, n:lines.length});
@@ -2352,7 +2376,7 @@ function openSchematic(){
   if (!$('#scTitle').value){
     const G = S.game; $('#scTitle').value = G && G.focus != null ? (G.towns[G.focus] || '') : '';
   }
-  $('#scDlg').showModal(); schemFilterUI(); schemPreview();
+  $('#scDlg').showModal(); $('#schemBtn').setAttribute('aria-selected', 'true'); schemPreview(); schemFilterUI();
 }
 async function schemSave(kind){
   if (!schemOut) return;
@@ -3294,7 +3318,9 @@ function renderLegend(){
     rows = [[COV.ok, 'Has a stop nearby'], [COV.gap, 'No stop in reach'], [COV.plan, 'Reached by your new stop', COV.planEdge]];
     if (S.settings.gapSpots !== false) rows.push([COV.accent, 'Good spot for a stop', 'round']);
   } else if (activeTab === 'cargo' && has && S.game.industries && (S.settings.cargoView || 'problems') !== 'off'){
-    rows = [[IND_COLORS.ok, 'supplied'], [IND_COLORS.missing, 'reached, missing'], [IND_COLORS.unreached, 'no cargo stop'], [IND_COLORS.source, 'makes it']];
+    const gs = goodSel(), gn = gs != null ? cargoName(gs) : null;
+    rows = gn ? [[IND_COLORS.ok, T('Gets {g}', {g:gn})], [IND_COLORS.missing, T('Has a cargo stop, no {g} arrive', {g:gn})], [IND_COLORS.unreached, 'No cargo stop in reach'], [IND_COLORS.source, T('Makes {g}', {g:gn})]]
+      : [[IND_COLORS.ok, 'supplied'], [IND_COLORS.missing, 'reached, missing'], [IND_COLORS.unreached, 'no cargo stop']];
     if (S.settings.cargoSpots !== false) rows.push([COV.accent, 'Good spot for a cargo stop', 'round']);
   }
   lg.hidden = !rows.length; lg.textContent = '';
@@ -3850,6 +3876,8 @@ function ui(){
   $('#linePanel').hidden = !l;
   if (l){
     setVal($('#lnName'), l.name); setVal($('#lnMode'), l.mode); setVal($('#lnColor'), l.color);
+    document.querySelectorAll('#lnModeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === l.mode)));
+    document.querySelectorAll('#lnSwatches button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toLowerCase() === String(l.color).toLowerCase())));
     $('#lnCont').textContent = T(l.id === activeLine ? 'Stop drawing' : 'Draw branch');
     const r = selRun();
     $('#brBox').hidden = !r;
@@ -3873,7 +3901,7 @@ function ui(){
     if (st){ setVal($('#stName'), st.name); setVal($('#stSide'), st.side || 'auto'); $('#stBadges').checked = st.badges !== false; }
     $('#stBadgesRow').hidden = names.length < 2;
     const planning = !!(st && S.game && S.game.xf);
-    $('#stRadiusRow').hidden = !planning || st.game; $('#stReach').hidden = !planning;
+    $('#stRadiusRow').hidden = !planning || st.game; $('#stReach').hidden = !planning; $('#stPayoff').hidden = !planning || st.game;
     if (planning){
       if (st.game) $('#stReach').textContent = T('Stop from the game · reach {r} m', {r:st.r || '?'});
       else {
@@ -3881,6 +3909,8 @@ function ui(){
         const mine = planCoverage().per[n] || new Set(), cov = gameCovered();
         const add = [0, 0, 0], tot = [0, 0, 0];
         for (const b of S.game.buildings){ if (!mine.has(b[0]) || !CATS[b[4]]) continue; tot[b[4]] += b[3]; if (!isServed(b, cov)) add[b[4]] += b[3]; }
+        const gain = add[0] + add[1] + add[2];
+        $('#stPayoff').textContent = gain ? T('+{n} people get a stop', {n:gain.toLocaleString(LOCALE())}) : T('No one new is reached here');
         $('#stReach').textContent = T('Reaches {a} residents and {b} jobs. New: {c} residents, {d} jobs that no game stop reaches.', {a:tot[0], b:tot[1] + tot[2], c:add[0], d:add[1] + add[2]});
       }
     }
@@ -3923,13 +3953,14 @@ $('#fileIn').addEventListener('change', e => { readFile(e.target.files[0]); e.ta
 $('#saveProj').addEventListener('click', () => { finishLine(false); saveFile('transit-project.json', JSON.stringify(projectObj())); });
 $('#exportBtn').addEventListener('click', exportPNG);
 $('#schemBtn').addEventListener('click', openSchematic);
+$('#scDlg').addEventListener('close', () => $('#schemBtn').setAttribute('aria-selected', 'false'));
 $('#setLang').value = LANG;
 $('#setLang').addEventListener('change', e => setLang(e.target.value));
 $('#setTheme').addEventListener('click', e => { const b = e.target.closest('button[data-theme]'); if (!b) return; THEME = b.dataset.theme; try { localStorage.setItem('tfo-theme', THEME); } catch {} applyTheme(); });
 applyTheme();
 ['#scLayout', '#scStyle', '#scNames'].forEach(id => $(id).addEventListener('change', schemPreview));
-$('#scPlanned').addEventListener('change', () => { schemFilterUI(); schemPreview(); });
-$('#scAll').addEventListener('click', e => { e.preventDefault(); const f = schemFilter(); f.offModes = []; f.offLines = []; autosave(); schemFilterUI(); schemPreview(); });
+$('#scPlanned').addEventListener('change', () => { schemPreview(); schemFilterUI(); });
+$('#scAll').addEventListener('click', e => { e.preventDefault(); const f = schemFilter(); f.offModes = []; f.offLines = []; autosave(); schemPreview(); schemFilterUI(); });
 $('#scTitle').addEventListener('input', () => { clearTimeout(schemPreview.t); schemPreview.t = setTimeout(schemPreview, 250); });
 $('#scPng').addEventListener('click', () => schemSave('png'));
 $('#scSvg').addEventListener('click', () => schemSave('svg'));
@@ -3944,6 +3975,8 @@ $('#lnName').addEventListener('change', settle);
 $('#lnColor').addEventListener('input', e => { const l = curLine(); if (!l) return; liveEdit(); l.color = e.target.value; ui(); draw(); });
 $('#lnColor').addEventListener('change', settle);
 $('#lnMode').addEventListener('change', e => { const l = curLine(); if (!l) return; commit(); l.mode = e.target.value; ui(); draw(); });
+$('#lnModeSeg').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (!b) return; const m = $('#lnMode'); m.value = b.dataset.mode; m.dispatchEvent(new Event('change')); });
+$('#lnSwatches').addEventListener('click', e => { const b = e.target.closest('button[data-color]'); if (!b) return; const c = $('#lnColor'); c.value = b.dataset.color; c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); });
 $('#lnCont').addEventListener('click', () => {
   const l = curLine(); if (!l) return;
   if (activeLine === l.id){ finishLine(false); return; }
