@@ -92,6 +92,10 @@ header.bar .gear[aria-pressed="true"]{background:var(--accent);color:var(--accen
 .banner b{font-weight:800}
 .status{position:absolute;left:14px;bottom:14px;right:310px;pointer-events:none;display:flex}
 .status span{background:var(--ink);color:var(--panel);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:500;line-height:1.35;max-width:100%;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.legend{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:500;box-shadow:0 3px 0 var(--rule);pointer-events:none;max-width:260px}
+.legend span{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none;box-sizing:border-box}
+.legend i.round{border-radius:50%;border:2px solid var(--ink)}
 .zoom{position:absolute;right:14px;bottom:14px;display:flex;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:14px;padding:5px;box-shadow:0 3px 0 var(--rule)}
 .zoom button{border:0;background:transparent;border-radius:10px;min-width:36px;height:36px;padding:0 10px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink)}
 .zoom button:hover{background:var(--bg)}
@@ -183,8 +187,8 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
 .io{display:flex;flex-direction:column;gap:4px}
 .io-row{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:6px;align-items:center;font-size:13px}
 .io-row .mk{font-weight:800;text-align:center}
-.io-row.ok .mk{color:#159447}
-.io-row.no .mk{color:#D6282E}
+.io-row.ok .mk{color:var(--good)}
+.io-row.no .mk{color:var(--danger)}
 .io-row .note{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rot{display:flex;align-items:center;gap:6px;min-width:0}
 .rot input{flex:1;min-width:0;accent-color:var(--accent)}
@@ -292,6 +296,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
       <button class="btn primary" id="bannerOpen">Open image</button>
     </div>
     <div class="status"><span id="hint"></span></div>
+    <div class="legend" id="legend" hidden aria-label="Legend"></div>
     <div class="zoom">
       <button id="zOut" aria-label="Zoom out">−</button>
       <output id="zLevel">100%</output>
@@ -421,7 +426,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
       <label class="check"><input type="checkbox" id="cInd"> Industries ■</label>
       <label class="check"><input type="checkbox" id="cBiz"> Commercial buildings ▲</label>
       <label class="check"><input type="checkbox" id="cTind"> Town industrial buildings ◆</label>
-      <p class="legend-key"><span class="k" style="background:#159447"></span>supplied <span class="k" style="background:#E07B00"></span>reached, missing <span class="k" style="background:#D6282E"></span>no cargo stop <span class="k" id="cSrcKey" style="background:#2F6FD6"></span><span id="cSrcTxt">makes it</span></p>
+      <p class="legend-key"><span class="k" style="background:#2E9E5B"></span>supplied <span class="k" style="background:#F2A900"></span>reached, missing <span class="k" style="background:#D9532B"></span>no cargo stop <span class="k" id="cSrcKey" style="background:#2F6FD6"></span><span id="cSrcTxt">makes it</span></p>
       <p class="info" id="cSummary"></p>
       <h3 class="sub" id="cSpotsHead">Best spots for a new cargo stop</h3>
       <div id="cSpotsBox">
@@ -566,6 +571,11 @@ const STRINGS = {de:{
   "Schematic map": "Netzplan",
   "Export PNG": "PNG exportieren",
   "Game connected": "Spiel verbunden",
+  "Has a stop nearby": "Haltestelle in der Nähe",
+  "No stop in reach": "Keine Haltestelle erreichbar",
+  "Reached by your new stop": "Von deiner neuen Haltestelle erreicht",
+  "Good spot for a stop": "Guter Ort für eine Haltestelle",
+  "Good spot for a cargo stop": "Guter Ort für eine Frachthaltestelle",
   "Game data": "Spieldaten",
   "Settings": "Einstellungen",
   "Map canvas": "Karte",
@@ -893,7 +903,7 @@ const STRINGS = {de:{
   "residents": "Einwohner",
   "jobs": "Arbeitsplätze"
 }};
-const FONT = '"Overpass", system-ui, sans-serif';
+const FONT = '"Rubik", system-ui, sans-serif';
 const MODES = {
   subway:{label:'Subway', w:9},
   train:{label:'Train', w:8},
@@ -903,7 +913,9 @@ const MODES = {
 };
 const ORDER = ['subway','train','tram','bus','ferry'];
 const PALETTE = ['#D6282E','#1F5FAD','#159447','#F28C00','#7B3FA0','#C2185B','#00838F','#8D6E3F','#455A64','#E65100','#2E7D32','#5B4A9E'];
-const STATION_INK = '#1C2026';
+const STATION_INK = '#2B2419';
+/* Map status colours: reached, not reached, reached by a planned stop, and the amber that marks anything planned. */
+const COV = {ok:'#2E9E5B', gap:'#D9532B', plan:'#5ED38A', planEdge:'#1C6338', accent:'#F2A900'};
 const KEY = 'transit-overlay-v1';
 const DEFAULT_SETTINGS = {size:1, fade:0.2, gray:false, legend:true};
 
@@ -1417,7 +1429,7 @@ function drawStations(g, G, u){
     g.setLineDash([]); g.lineCap = 'round';
     if (sg.inter){ g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 2*r + 3*u; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke(); }
     g.strokeStyle = STATION_INK; g.lineWidth = 2*r; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke();
-    g.strokeStyle = '#fff'; g.lineWidth = 2*r - 2*ring; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke();
+    g.strokeStyle = (S.game && S.game.xf && !st.game) ? COV.accent : '#fff'; g.lineWidth = 2*r - 2*ring; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke();
     items.push({st, sg});
   }
   // Place labels without overlaps: fixed sides first, then busiest stations; automatic labels try 8 positions.
@@ -1546,9 +1558,9 @@ function paint(){
     for (const [k, n] of Object.entries(S.nodes)){
       const isSel = +k === sel.node;
       if (!isSel && !show.has(+k)) continue;
-      ctx.beginPath(); ctx.arc(n.x, n.y, (isSel ? 6 : 4)/z, 0, Math.PI*2);
-      ctx.fillStyle = isSel ? '#F2A900' : '#fff'; ctx.fill();
-      ctx.lineWidth = 1.5/z; ctx.strokeStyle = STATION_INK; ctx.stroke();
+      ctx.beginPath(); ctx.arc(n.x, n.y, (isSel ? 7 : 5)/z, 0, Math.PI*2);
+      ctx.fillStyle = isSel ? COV.accent : '#fff'; ctx.fill();
+      ctx.lineWidth = 2/z; ctx.strokeStyle = STATION_INK; ctx.stroke();
     }
   } else if (sel.node != null && S.nodes[sel.node]){
     const n = S.nodes[sel.node]; ctx.beginPath(); ctx.arc(n.x, n.y, 14/z + MODES.subway.w*u/2, 0, Math.PI*2);
@@ -2569,7 +2581,7 @@ function drawRadii(g, u){
     g.strokeStyle = st.game ? 'rgba(40,40,40,0.28)' : 'rgba(214,140,0,0.9)'; g.stroke(); g.setLineDash([]);
   }
 }
-const CATS = [{label:'Homes', unit:'residents', color:'#D6282E'}, {label:'Businesses', unit:'jobs', color:'#E07B00'}, {label:'Industry', unit:'jobs', color:'#7B3FA0'}];
+const CATS = [{label:'Homes', unit:'residents', color:'#8C7B5A'}, {label:'Businesses', unit:'jobs', color:'#8C7B5A'}, {label:'Industry', unit:'jobs', color:'#8C7B5A'}];
 const covTypes = () => { const t = S.settings.covTypes; return Array.isArray(t) && t.length === 3 ? t : [true, false, false]; };
 function catTotals(){
   const cov = gameCovered(), plan = planCoverage().set, out = CATS.map(() => ({people:0, served:0, planned:0}));
@@ -3183,8 +3195,8 @@ function drawCoverage(g, u){
     if (t === 1) g.rect(p.x - r*0.88, p.y - r*0.88, r*1.76, r*1.76);
     else if (t === 2){ g.moveTo(p.x, p.y - r*1.15); g.lineTo(p.x + r*1.15, p.y); g.lineTo(p.x, p.y + r*1.15); g.lineTo(p.x - r*1.15, p.y); g.closePath(); }
     else g.arc(p.x, p.y, r, 0, Math.PI*2);
-    g.fillStyle = served ? 'rgba(21,148,71,0.75)' : CATS[t].color; g.globalAlpha = served ? 1 : 0.88; g.fill(); g.globalAlpha = 1;
-    g.lineWidth = Math.max(0.6*u, r*0.25); g.strokeStyle = sv === 2 ? '#F2A900' : 'rgba(255,255,255,0.9)';
+    g.fillStyle = sv === 2 ? COV.plan : served ? COV.ok : COV.gap; g.globalAlpha = served ? 1 : 0.9; g.fill(); g.globalAlpha = 1;
+    g.lineWidth = Math.max(0.6*u, r*0.25); g.strokeStyle = sv === 2 ? COV.accent : 'rgba(255,255,255,0.9)';
     if (sv === 2) g.lineWidth = Math.max(1.2*u, r*0.45);
     g.stroke();
   }
@@ -3260,13 +3272,13 @@ function drawGapSpots(g, u){
   const D = gapData(), k = pxPerM();
   D.spots.forEach((s, n) => {
     const p = W2I(s.x, s.y);
-    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(28,32,38,0.7)'; g.stroke(); g.setLineDash([]);
-    g.beginPath(); g.arc(p.x, p.y, 11*u, 0, Math.PI*2); g.fillStyle = '#1C2026'; g.fill(); g.lineWidth = 2*u; g.strokeStyle = '#fff'; g.stroke();
-    g.fillStyle = '#fff'; g.font = `800 ${12*u}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
+    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(43,36,25,0.6)'; g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(p.x, p.y, 12*u, 0, Math.PI*2); g.fillStyle = COV.accent; g.fill(); g.lineWidth = 2*u; g.strokeStyle = STATION_INK; g.stroke();
+    g.fillStyle = STATION_INK; g.font = `800 ${12*u}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
     const lbl = '+' + s.total.toLocaleString(LOCALE());
     g.font = `700 ${11.5*u}px ${getComputedStyle(document.body).fontFamily}`; const w = g.measureText(lbl).width + 12*u;
     g.beginPath(); g.roundRect(p.x + 14*u, p.y - 9*u, w, 18*u, 9*u); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill(); g.lineWidth = u; g.strokeStyle = 'rgba(0,0,0,0.2)'; g.stroke();
-    g.fillStyle = '#1C2026'; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
+    g.fillStyle = STATION_INK; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
   });
 }
 function addSpotStop(s){
@@ -3275,6 +3287,22 @@ function addSpotStop(s){
   S.stations[id] = {name:'', side:'auto', solo:true};
   sel = {line:null, branch:null, node:id}; ui(); draw();
   toast(T('Stop added. It reaches about {n} people no stop reaches today.', {n:s.total.toLocaleString(LOCALE())}));
+}
+function renderLegend(){
+  const lg = $('#legend'); const has = S.game && S.game.xf; let rows = [];
+  if (activeTab === 'coverage' && has && (S.settings.coverage || 'gaps') !== 'off'){
+    rows = [[COV.ok, 'Has a stop nearby'], [COV.gap, 'No stop in reach'], [COV.plan, 'Reached by your new stop', COV.planEdge]];
+    if (S.settings.gapSpots !== false) rows.push([COV.accent, 'Good spot for a stop', 'round']);
+  } else if (activeTab === 'cargo' && has && S.game.industries && (S.settings.cargoView || 'problems') !== 'off'){
+    rows = [[IND_COLORS.ok, 'supplied'], [IND_COLORS.missing, 'reached, missing'], [IND_COLORS.unreached, 'no cargo stop'], [IND_COLORS.source, 'makes it']];
+    if (S.settings.cargoSpots !== false) rows.push([COV.accent, 'Good spot for a cargo stop', 'round']);
+  }
+  lg.hidden = !rows.length; lg.textContent = '';
+  rows.forEach(([c, label, edge]) => {
+    const row = document.createElement('span'), k = document.createElement('i');
+    k.style.background = c; if (edge === 'round') k.className = 'round'; else if (edge) k.style.border = '1px solid ' + edge;
+    row.append(k, T(label)); lg.append(row);
+  });
 }
 function renderSpots(){
   const G = S.game, D = gapData(), types = covTypes(), any = types.some(Boolean);
@@ -3396,13 +3424,13 @@ function drawSpotMarks(g, u, spots, labelOf){
   const k = pxPerM(), font = getComputedStyle(document.body).fontFamily;
   spots.forEach((s, n) => {
     const p = W2I(s.x, s.y);
-    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(28,32,38,0.7)'; g.stroke(); g.setLineDash([]);
-    g.beginPath(); g.arc(p.x, p.y, 11*u, 0, Math.PI*2); g.fillStyle = '#1C2026'; g.fill(); g.lineWidth = 2*u; g.strokeStyle = '#fff'; g.stroke();
-    g.fillStyle = '#fff'; g.font = `800 ${12*u}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
+    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(43,36,25,0.6)'; g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(p.x, p.y, 12*u, 0, Math.PI*2); g.fillStyle = COV.accent; g.fill(); g.lineWidth = 2*u; g.strokeStyle = STATION_INK; g.stroke();
+    g.fillStyle = STATION_INK; g.font = `800 ${12*u}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
     const lbl = labelOf(s);
     g.font = `700 ${11.5*u}px ${font}`; const w = g.measureText(lbl).width + 12*u;
     g.beginPath(); g.roundRect(p.x + 14*u, p.y - 9*u, w, 18*u, 9*u); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill(); g.lineWidth = u; g.strokeStyle = 'rgba(0,0,0,0.2)'; g.stroke();
-    g.fillStyle = '#1C2026'; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
+    g.fillStyle = STATION_INK; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
   });
 }
 function drawCargoGapSpots(g, u){
@@ -3627,7 +3655,7 @@ function industryState(ind){
   const level = !reached ? 'unreached' : st.missing.length ? 'missing' : 'ok';
   return {st, reached, level};
 }
-const IND_COLORS = {ok:'#159447', missing:'#E07B00', unreached:'#D6282E', source:'#2F6FD6'};
+const IND_COLORS = {ok:'#2E9E5B', missing:'#F2A900', unreached:'#D9532B', source:'#2F6FD6'};
 function industriesInView(){
   const fbx = focusBox();
   return (S.game.industries || []).filter(i => inBox(fbx, i.x, i.y));
@@ -3663,7 +3691,7 @@ function drawCargo(g, u){
       if (bizKind(b) === 'tind'){ g.moveTo(p.x, p.y - r); g.lineTo(p.x + r, p.y); g.lineTo(p.x, p.y + r); g.lineTo(p.x - r, p.y); }
       else { g.moveTo(p.x, p.y - r); g.lineTo(p.x + r, p.y + r*0.8); g.lineTo(p.x - r, p.y + r*0.8); }
       g.closePath();
-      g.fillStyle = bs.supplied ? '#159447' : bs.reached ? '#E07B00' : '#D6282E'; g.fill();
+      g.fillStyle = bs.supplied ? IND_COLORS.ok : bs.reached ? IND_COLORS.missing : IND_COLORS.unreached; g.fill();
       g.lineWidth = Math.max(0.6*u, r*0.22); g.strokeStyle = '#fff'; g.stroke();
     }
   }
@@ -3676,7 +3704,7 @@ function drawCargo(g, u){
       const sel = sel_ind === ind.id;
       g.beginPath(); if (g.roundRect) g.roundRect(p.x - r, p.y - r, 2*r, 2*r, r*0.3); else g.rect(p.x - r, p.y - r, 2*r, 2*r);
       g.fillStyle = IND_COLORS[s.level]; g.fill();
-      g.lineWidth = Math.max(1.2*u, r*0.14); g.strokeStyle = sel ? '#F2A900' : '#fff'; g.stroke();
+      g.lineWidth = Math.max(1.2*u, r*0.14); g.strokeStyle = sel ? COV.accent : '#fff'; g.stroke();
       // a chimney mark so industries read differently from businesses
       g.fillStyle = '#fff'; g.fillRect(p.x - r*0.45, p.y - r*0.1, r*0.9, r*0.5); g.fillRect(p.x + r*0.15, p.y - r*0.55, r*0.22, r*0.5);
       const label = industryLabel(ind, s.st);
@@ -3793,6 +3821,7 @@ function autosave(){
   }, 900);
 }
 function ui(){
+  renderLegend();
   gameUI();
   cargoUI();
   if (typeof tabUI === 'function') try { tabUI(); } catch {}
@@ -4122,7 +4151,7 @@ let toastT = 0;
 const domEN = new Map(); let domScanned = false;
 function scanDom(){
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => {
-    const p = n.parentElement; if (!p || p.closest('script,style,svg,canvas,#scPreview,#gSpots,#gTowns,#gCats,#cList,#cDemand,#lineList,#indIO,#toast,#hint,option[data-dyn]')) return NodeFilter.FILTER_REJECT;
+    const p = n.parentElement; if (!p || p.closest('script,style,svg,canvas,#scPreview,#gSpots,#gTowns,#gCats,#cList,#cDemand,#lineList,#indIO,#toast,#hint,#legend,option[data-dyn]')) return NodeFilter.FILTER_REJECT;
     return /[A-Za-z]{2}/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }});
   for (let n; (n = walk.nextNode());) domEN.set(n, n.nodeValue);
   document.querySelectorAll('[title],[aria-label],[placeholder]').forEach(el => {
