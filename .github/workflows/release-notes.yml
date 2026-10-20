@@ -1,0 +1,28 @@
+name: Release notes
+
+# Rewrites the notes of every existing release from CHANGELOG.md
+# (the version's section, then the standard download text).
+# Releases without a section in CHANGELOG.md are left alone.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName -q '.[].tagName' | while read tag; do
+            v=${tag#v}
+            awk -v h="## $v" '$0==h{f=1;next} /^## /{f=0} f' CHANGELOG.md | sed '/./,$!d' > changes.md
+            [ -s changes.md ] || { echo "skip $tag"; continue; }
+            { echo "## What's new"; echo; cat changes.md; echo; echo "## Downloads"; echo; cat .github/release-footer.md; } > notes.md
+            gh release edit "$tag" --notes-file notes.md && echo "updated $tag"
+          done
