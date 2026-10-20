@@ -38,18 +38,19 @@ button,input,select{font:inherit;color:inherit}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-height:56px;padding-block:8px;padding-inline:16px 14px;background:var(--head);color:var(--head-ink);box-sizing:border-box}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;letter-spacing:.01em;margin-right:6px;white-space:nowrap}
 .brand svg{flex:none}
-.grp{display:flex;align-items:center;gap:2px;background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:2px}
-.grp button{border:0;background:transparent;border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap;font-weight:600}
-.grp button:hover{background:var(--panel)}
-.grp button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
-.grp button[aria-pressed="true"] .mi-core{stroke:var(--ink)}
+.grp{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:14px;padding:5px;box-shadow:0 3px 0 var(--rule)}
+.grp button{border:0;background:transparent;border-radius:10px;height:36px;padding:0 14px;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;font-weight:600;font-size:14px;color:var(--ink)}
+.grp button:hover{background:var(--bg)}
+.grp button[aria-label]{width:36px;padding:0;justify-content:center}
+.grp button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.grp button[aria-pressed="true"] .mi-core{stroke:var(--accent)}
 .grp button kbd{font-size:11px;font-weight:700;opacity:.6}
 .mi{width:26px;height:10px;flex:none}
-.mi-core{stroke:var(--bg)}
+.mi-core{stroke:var(--panel)}
 .spacer{flex:1}
-.floatbar{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none;align-items:flex-start}
-.floatbar .grp{pointer-events:auto;background:var(--panel);box-shadow:0 2px 10px rgba(0,0,0,.12)}
-.floatbar .grp button{padding:5px 9px;font-size:13px}
+.floatbar{position:absolute;top:14px;left:14px;right:14px;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none;align-items:flex-start}
+.floatbar .grp{pointer-events:auto}
+.floatbar .grp button{padding:0 12px}
 .tabs{display:flex;gap:4px;background:var(--head-well);border-radius:999px;padding:4px}
 .tabs button{border:0;background:transparent;border-radius:999px;height:36px;padding:0 16px;cursor:pointer;font-weight:600;font-size:14px;color:var(--head-muted);display:inline-flex;align-items:center;gap:8px}
 .tabs button:hover{color:var(--head-ink)}
@@ -86,16 +87,16 @@ button,input,select{font:inherit;color:inherit}
 .app{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
 .stage{position:relative;background:var(--stage);overflow:hidden;min-width:0;touch-action:none}
 #map{position:absolute;inset:0;display:block}
-.banner{position:absolute;top:60px;left:12px;right:12px;max-width:560px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.banner{position:absolute;top:78px;left:14px;right:14px;max-width:560px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--panel);border:2px solid var(--rule);border-radius:14px;padding:12px 14px;box-shadow:0 3px 0 var(--rule)}
 .banner p{margin:0;flex:1 1 260px;line-height:1.4}
 .banner b{font-weight:800}
-.status{position:absolute;left:12px;bottom:12px;right:150px;pointer-events:none;display:flex}
-.status span{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:5px 9px;font-size:12.5px;line-height:1.35;color:var(--muted);max-width:100%}
-.zoom{position:absolute;right:12px;bottom:12px;display:flex;gap:2px;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:2px}
-.zoom button{border:0;background:transparent;border-radius:6px;min-width:30px;height:28px;cursor:pointer;font-weight:700}
+.status{position:absolute;left:14px;bottom:14px;right:310px;pointer-events:none;display:flex}
+.status span{background:var(--ink);color:var(--panel);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:500;line-height:1.35;max-width:100%;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.zoom{position:absolute;right:14px;bottom:14px;display:flex;gap:6px;background:var(--panel);border:2px solid var(--rule);border-radius:14px;padding:5px;box-shadow:0 3px 0 var(--rule)}
+.zoom button{border:0;background:transparent;border-radius:10px;min-width:36px;height:36px;padding:0 10px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink)}
 .zoom button:hover{background:var(--bg)}
 .vrot{display:flex;align-items:center;gap:2px}
-.vsep{width:1px;align-self:stretch;background:var(--rule);margin:3px 4px}
+.vsep{width:2px;align-self:stretch;background:var(--rule);margin:4px 2px;border-radius:1px}
 .zoom .vdeg{font-size:13px;font-weight:600;min-width:44px;color:var(--ink);font-variant-numeric:tabular-nums}
 .zoom output{font-size:13px;font-weight:700;align-self:center;min-width:48px;text-align:center;color:var(--ink);font-variant-numeric:tabular-nums}
 
@@ -226,7 +227,7 @@ h3.sub{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
   .rail{border-left:0;border-top:2px solid var(--rule)}
   .grp button kbd{display:none}
   .brand span{display:none}
-  .status{right:12px;bottom:56px}
+  .status{right:14px;bottom:70px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
