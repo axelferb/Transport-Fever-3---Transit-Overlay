@@ -2171,7 +2171,7 @@ function schemSVG(opts){
   // water: the game's lakes and sea, moved along with the stops around them
   let water = '';
   const T = S.game && S.game.terrain;
-  if (opts.water !== false && T && S.game.xf){
+  if (opts.water === true && T && S.game.xf){ // off for now; kept for a later "Show water" option
     const wl = waterLevel(), keys = [...P.keys()], cell = [];
     const m = 80 / k0; // world metres of margin around the network
     const wpts = keys.map(k => I2W({x:O.get(k).x / k0, y:O.get(k).y / k0}));
