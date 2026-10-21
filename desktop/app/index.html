@@ -2002,7 +2002,7 @@ function schemData(opts){
   for (const k of [...st.keys()]) if (!lines.some(L => L.edges.some(e => e[0] === k || e[1] === k))) st.delete(k);
   return {st, lines};
 }
-const SCHEM_STEP = 115, SCHEM_GAP = 70; // typical distance between neighbouring stops, and the least between any two
+const SCHEM_STEP = 170, SCHEM_GAP = 105; // typical distance between neighbouring stops, and the least between any two
 function schemLayout(D, geographic){
   const S0 = [...D.st.values()], E = new Map();
   D.lines.forEach(L => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!E.has(k)) E.set(k, [a, b]); }));
@@ -2016,7 +2016,7 @@ function schemLayout(D, geographic){
   const O = new Map([...P].map(([k, p]) => [k, {x:p.x, y:p.y}])); // positions before the layout moved them
   if (!geographic){
     // stops where many lines meet get more room around them, for the bundle of lines and their badges
-    const nL = new Map(S0.map(o => [o.k, o.lines.size])), gapOf = (a, b) => SCHEM_GAP + 7 * (nL.get(a) + nL.get(b) - 2);
+    const nL = new Map(S0.map(o => [o.k, o.lines.size])), gapOf = (a, b) => SCHEM_GAP + 10 * (nL.get(a) + nL.get(b) - 2);
     const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(SCHEM_STEP * 0.7, gapOf(a, b), d <= SCHEM_STEP ? d : SCHEM_STEP * Math.pow(d / SCHEM_STEP, 0.35)); });
     const keys = [...P.keys()];
     for (let it = 0; it < 600; it++){
@@ -2306,7 +2306,7 @@ function schemSVG(opts){
   const head = 92;
   const Wt = Math.max(mapW, 560) + pad*2;
   const groups = []; D.lines.forEach(L => { let g = groups.find(x => x.head === L.head); if (!g) groups.push(g = {head:L.head, lines:[]}); g.lines.push(L); });
-  const cols = Math.max(1, Math.floor((Wt - pad*2) / 280)), colW = (Wt - pad*2) / cols;
+  const cols = Math.max(1, Math.min(3, Math.floor((Wt - pad*2) / 280))), colW = (Wt - pad*2) / cols;
   let ly = 0; const legend = [];
   for (const g of groups){
     legend.push(`<text x="${pad}" y="${f(ly + 12)}" font-size="10.5" font-weight="800" letter-spacing="1.4" fill="${C.muted}">${esc(T_(g.head).toLocaleUpperCase(LOCALE()))}</text>`);
