@@ -2022,7 +2022,7 @@ function schemLayout(D, geographic){
    nearby point that best keeps stretches at 0°/45°/90°, about one step long, heading the way they really do,
    without lines running over stops they don't serve or crossing other lines. */
 function schemGrid(P, edges, nLines){
-  const C = SCHEM_STEP / 3; // grid size; a typical stretch is three grid steps
+  const C = SCHEM_STEP / 3; // grid size; a typical stretch is two grid steps
   const keys = [...P.keys()], G = new Map(), taken = new Map();
   const cell = (x, y) => x + ',' + y;
   // start: the nearest free grid point to each stop, busiest stops first
@@ -2042,7 +2042,7 @@ function schemGrid(P, edges, nLines){
   const segsOf = i => { const [a, b] = edges[i], pts = schemRoute(px(G.get(a)), px(G.get(b))).map(q => ({x:q.x / C, y:q.y / C})); const out = []; for (let j = 1; j < pts.length; j++) out.push([pts[j - 1], pts[j]]); return out; };
   const dSeg = (p, u, v) => { const dx = v.x - u.x, dy = v.y - u.y, l2 = dx*dx + dy*dy; let t = l2 ? ((p.x - u.x)*dx + (p.y - u.y)*dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p.x - u.x - t*dx, p.y - u.y - t*dy); };
   const cross = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q.x - p.x)*(r.y - p.y) - (q.y - p.y)*(r.x - p.x)); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
-  const want = 3;
+  const want = 2;
   const edgeCost = i => {
     const [a, b] = edges[i], pa = G.get(a), pb = G.get(b), dx = pb.x - pa.x, dy = pb.y - pa.y, L = Math.hypot(dx, dy);
     const ang = Math.atan2(dy, dx), off = Math.abs(ang / (Math.PI / 4) - Math.round(ang / (Math.PI / 4))) * (Math.PI / 4);
@@ -2082,6 +2082,27 @@ function schemGrid(P, edges, nLines){
     }
     if (!moved) break;
   }
+  // squeeze out empty grid columns and rows: ones with no stop on them that no slanted stretch crosses,
+  // and that don't bring two stops on a level (or upright) stretch closer than two steps
+  for (const axis of ['x', 'y']){
+    const other = axis === 'x' ? 'y' : 'x';
+    for (let changed = true; changed;){
+      changed = false;
+      const vals = keys.map(k => G.get(k)[axis]), lo = Math.min(...vals), hi = Math.max(...vals);
+      for (let c = lo + 1; c < hi; c++){
+        if (keys.some(k => G.get(k)[axis] === c)) continue;
+        const ok = edges.every(([a, b]) => {
+          const u = G.get(a), v = G.get(b), mn = Math.min(u[axis], v[axis]), mx = Math.max(u[axis], v[axis]);
+          if (c < mn || c > mx) return true;
+          if (u[other] !== v[other]) return false; // a slanted stretch would lose its angle
+          return mx - mn - 1 >= 2;
+        });
+        if (!ok) continue;
+        for (const k of keys){ const g = G.get(k); if (g[axis] > c) g[axis]--; }
+        changed = true; break;
+      }
+    }
+  }
   for (const k of keys){ const g = G.get(k), p = P.get(k); p.x = g.x * C; p.y = g.y * C; }
 }
 /* Separate networks (towns far apart with no line between them) are slid towards each other until
@@ -2106,7 +2127,7 @@ function schemPack(P, edges){
   }
   if (G.length < 2) return;
   G.sort((a, b) => b.keys.length - a.keys.length);
-  const M = 90; // room between places, for station names
+  const M = 160; // room between places, for station names and badges
   const anchor = G[0], ax = (anchor.b.x0 + anchor.b.x1) / 2, ay = (anchor.b.y0 + anchor.b.y1) / 2;
   for (let it = 0; it < 400; it++){
     let moved = false;
@@ -2190,7 +2211,7 @@ function schemSVG(opts){
   const C = dark
     ? {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
     : {bg:'#F3F2EE', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#D9D6CE', box:'rgba(40,48,40,0.045)', boxLine:'rgba(60,70,60,0.22)', water:'#CADCE6', town:'#5E6670'};
-  const W = 6.5, GAP = 1.5, RAD = 28;
+  const W = 10, GAP = 2, RAD = 30;
   const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const f = v => v.toFixed(1);
@@ -2253,8 +2274,8 @@ function schemSVG(opts){
   for (const o of stations){
     const p = P.get(o.k), L = D.lines.find(l => o.lines.has(l.li));
     marks.push(o.inter
-      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>`
-      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`);
+      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="3.4"/>`
+      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="3"/>`);
     boxes.push({x:p.x - o.r, y:p.y - o.r, w:2*o.r, h:2*o.r});
   }
   // town boxes behind their stops (one per group of stops close together), name in small capitals
@@ -2286,12 +2307,12 @@ function schemSVG(opts){
   // badges at each line's ends, stacked above the stop
   if (opts.badges !== false){
     for (const [k, Ls] of ends){
-      const p = P.get(k), o = D.st.get(k), bh = 14, gap = 2;
-      const cols = Ls.length > 3 ? 2 : 1, cw = Math.max(...Ls.map(L => L.code.length * 6.6 + 10));
+      const p = P.get(k), o = D.st.get(k), bh = 18, gap = 2;
+      const cols = Ls.length > 3 ? 2 : 1, cw = Math.max(...Ls.map(L => L.code.length * 8.2 + 12));
       Ls.forEach((L, i) => {
-        const w = L.code.length * 6.6 + 10, c = i % cols, row = Math.floor(i / cols);
+        const w = L.code.length * 8.2 + 12, c = i % cols, row = Math.floor(i / cols);
         const x = p.x - (cols * cw + (cols - 1) * gap) / 2 + c * (cw + gap) + (cw - w) / 2, y = p.y - o.r - 5 - (row + 1) * (bh + gap);
-        badges.push(`<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${bh}" rx="3.5" fill="${L.color}"/><text x="${f(x + w/2)}" y="${f(y + 10.4)}" text-anchor="middle" font-size="10" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text>`);
+        badges.push(`<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${bh}" rx="4.5" fill="${L.color}"/><text x="${f(x + w/2)}" y="${f(y + 13.2)}" text-anchor="middle" font-size="12.5" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text>`);
         boxes.push({x, y, w, h:bh}); grow(x, y, w, bh);
       });
     }
@@ -2306,7 +2327,7 @@ function schemSVG(opts){
   }
   // station names, placed where they don't hit lines, stops, badges or town names
   if (opts.names !== false){
-    const fs = 11, segs = [];
+    const fs = 14, segs = [];
     for (const [k] of onEdge){ const [a, b] = k.split('|'); const pts = schemRoute(P.get(a), P.get(b)); for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); }
     const hitSeg = bx => segs.some(([u, v]) => segBox(u, v, bx));
     const hitBox = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
@@ -2363,14 +2384,14 @@ function schemSVG(opts){
   let ly = 0; const legend = [];
   for (const g of groups){
     legend.push(`<text x="${pad}" y="${f(ly + 12)}" font-size="10.5" font-weight="800" letter-spacing="1.4" fill="${C.muted}">${esc(T_(g.head).toLocaleUpperCase(LOCALE()))}</text>`);
-    ly += 24;
+    ly += 28;
     g.lines.forEach((L, i) => {
-      const cx = pad + (i % cols) * colW, cy = ly + Math.floor(i / cols) * 24;
-      const fit = Math.max(8, Math.floor((colW - 90) / 6.6)), nm = L.name.length > fit ? L.name.slice(0, fit - 1) + '…' : L.name;
-      const bw = L.code.length * 6.6 + 10;
-      legend.push(`<line x1="${cx}" y1="${cy}" x2="${cx + 26}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><rect x="${cx + 34}" y="${cy - 7}" width="${f(bw)}" height="14" rx="3.5" fill="${L.color}"/><text x="${f(cx + 34 + bw/2)}" y="${cy + 3.6}" text-anchor="middle" font-size="10" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text><text x="${f(cx + 42 + bw)}" y="${cy + 4}" font-size="12" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`);
+      const cx = pad + (i % cols) * colW, cy = ly + Math.floor(i / cols) * 28;
+      const fit = Math.max(8, Math.floor((colW - 110) / 7.6)), nm = L.name.length > fit ? L.name.slice(0, fit - 1) + '…' : L.name;
+      const bw = L.code.length * 8.2 + 12;
+      legend.push(`<line x1="${cx}" y1="${cy}" x2="${cx + 30}" y2="${cy}" stroke="${L.color}" stroke-width="${W}" stroke-linecap="round"${L.planned ? ` stroke-dasharray="${W*1.6} ${W*1.1}"` : ''}/><rect x="${cx + 40}" y="${cy - 9}" width="${f(bw)}" height="18" rx="4.5" fill="${L.color}"/><text x="${f(cx + 40 + bw/2)}" y="${cy + 4.4}" text-anchor="middle" font-size="12.5" font-weight="800" fill="${inkOn(L.color)}">${esc(L.code)}</text><text x="${f(cx + 50 + bw)}" y="${cy + 5}" font-size="14" font-weight="600" fill="${C.ink}">${esc(nm)}</text>`);
     });
-    ly += Math.ceil(g.lines.length / cols) * 24 + 10;
+    ly += Math.ceil(g.lines.length / cols) * 28 + 10;
   }
   const legTop = head + mapH + pad, Ht = legTop + 22 + ly + 30;
   const ox = pad - x0 + (Wt - pad*2 - mapW) / 2, oy = head + pad/2 - y0;
