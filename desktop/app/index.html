@@ -2038,7 +2038,8 @@ function schemGrid(P, edges, nLines){
   const home = new Map(keys.map(k => [k, {x:P.get(k).x / C, y:P.get(k).y / C}]));
   const geoDir = edges.map(([a, b]) => Math.atan2(home.get(b).y - home.get(a).y, home.get(b).x - home.get(a).x));
   const inc = new Map(keys.map(k => [k, []])); edges.forEach(([a, b], i) => { inc.get(a).push(i); inc.get(b).push(i); });
-  const segsOf = i => { const [a, b] = edges[i], pts = schemRoute(G.get(a), G.get(b)); const out = []; for (let j = 1; j < pts.length; j++) out.push([pts[j - 1], pts[j]]); return out; };
+  const px = g => ({x:g.x * C, y:g.y * C}); // routes are worked out in drawing units, then back to grid steps
+  const segsOf = i => { const [a, b] = edges[i], pts = schemRoute(px(G.get(a)), px(G.get(b))).map(q => ({x:q.x / C, y:q.y / C})); const out = []; for (let j = 1; j < pts.length; j++) out.push([pts[j - 1], pts[j]]); return out; };
   const dSeg = (p, u, v) => { const dx = v.x - u.x, dy = v.y - u.y, l2 = dx*dx + dy*dy; let t = l2 ? ((p.x - u.x)*dx + (p.y - u.y)*dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p.x - u.x - t*dx, p.y - u.y - t*dy); };
   const cross = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q.x - p.x)*(r.y - p.y) - (q.y - p.y)*(r.x - p.x)); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
   const want = 3;
@@ -2185,11 +2186,9 @@ function schemSVG(opts){
   const D = schemData(opts);
   if (!D.lines.length) return null;
   const {P, O, k0} = schemLayout(D, opts.layout === 'geo');
-  const V = Object.assign({marker:'pill', slant:true, caps:true}, window.__schemVariant || {}); // MOCKUP: design variants
   const dark = opts.style === 'dark';
   const C = dark
-    ? V.slate ? {bg:'#33363B', ink:'#FFFFFF', muted:'#A9AEB4', st:'#33363B', rule:'#4A4E54', box:'rgba(255,255,255,0.05)', boxLine:'rgba(255,255,255,0.14)', water:'#22384A', town:'#B5BAC0'}
-    : {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
+    ? {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
     : {bg:'#F3F2EE', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#D9D6CE', box:'rgba(40,48,40,0.045)', boxLine:'rgba(60,70,60,0.22)', water:'#CADCE6', town:'#5E6670'};
   const W = 6.5, GAP = 1.5, RAD = 28;
   const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
@@ -2222,15 +2221,8 @@ function schemSVG(opts){
   }
   for (const o of stations){
     o.inter = o.lines.size > 1;
-    o.level = o.dirs.some(d => Math.abs(d.y) < 0.05); // on a level run: name goes on a slant
-    if (o.inter && V.marker === 'pill'){
-      // interchange: a capsule across the widest bundle of lines, like the bars on metro maps
-      const ds = o.dirs.slice().sort((a, b) => b.n - a.n), d = ds[0] || {x:1, y:0, n:1};
-      const across = Math.max(...ds.map(e => e.n)); // lines coming in from other directions end inside it too
-      o.pill = {len:Math.max(across * (W + GAP) + 9, 22), wid:13, ang:Math.atan2(d.y, d.x) * 180 / Math.PI + 90};
-      o.r = Math.max(o.pill.len, o.pill.wid) / 2;
-    } else if (o.inter){ const bundle = Math.max(1, ...o.dirs.map(d => d.n)); o.r = (bundle * (W + GAP)) / 2 + 3.5; }
-    else o.r = V.marker === 'pill' ? W * 0.5 : W * 0.62;
+    // interchange: a ring wide enough for the bundle of lines through it
+    o.r = o.inter ? (Math.max(1, ...o.dirs.map(d => d.n)) * (W + GAP)) / 2 + 3.5 : W * 0.62;
   }
   // towns: each stop belongs to the town whose buildings it sits among
   const towns = new Map();
@@ -2257,21 +2249,17 @@ function schemSVG(opts){
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const grow = (x, y, w, h) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h); };
   for (const p of P.values()) grow(p.x, p.y, 0, 0);
-  // stops: a small white dot on the line; a capsule where lines meet
+  // stops: a dot in the line's colour, a white ring where lines meet
   for (const o of stations){
     const p = P.get(o.k), L = D.lines.find(l => o.lines.has(l.li));
-    marks.push(o.inter && V.marker !== 'pill'
+    marks.push(o.inter
       ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>`
-      : !o.inter && V.marker !== 'pill'
-      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`
-      : o.inter
-      ? `<rect x="${f(-o.pill.len / 2)}" y="${f(-o.pill.wid / 2)}" width="${f(o.pill.len)}" height="${f(o.pill.wid)}" rx="${f(o.pill.wid / 2)}" transform="translate(${f(p.x)} ${f(p.y)}) rotate(${f(o.pill.ang)})" fill="${dark ? '#E4E4E4' : C.st}" stroke="${dark ? '#15181C' : C.ink}" stroke-width="2.4"/>`
-      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(W * 0.3)}" fill="#FFFFFF"/>`);
+      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`);
     boxes.push({x:p.x - o.r, y:p.y - o.r, w:2*o.r, h:2*o.r});
   }
   // town boxes behind their stops (one per group of stops close together), name in small capitals
   const townLabels = [];
-  if (opts.towns !== false && V.towns !== false) for (const t of towns.values()){
+  if (opts.towns !== false) for (const t of towns.values()){
     const groups = [];
     for (const o of t.st){
       const p = P.get(o.k), near = groups.filter(g => g.some(q => Math.hypot(P.get(q.k).x - p.x, P.get(q.k).y - p.y) < SCHEM_STEP * 1.85));
@@ -2322,38 +2310,18 @@ function schemSVG(opts){
     for (const [k] of onEdge){ const [a, b] = k.split('|'); const pts = schemRoute(P.get(a), P.get(b)); for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); }
     const hitSeg = bx => segs.some(([u, v]) => segBox(u, v, bx));
     const hitBox = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
-    const hitDiag = (x, y, len, sx, sy, h) => { // a name on a 45° slant, tested as a run of small squares
-      const out = []; for (let t = h * 0.8; t < len + h * 0.8; t += h * 0.75){ const q = t / Math.SQRT2; out.push({x:x + sx*q - h/2, y:y + sy*q - h/2, w:h, h}); }
-      return out;
-    };
-    for (const o of stations.slice().sort((a, b) => (ends.has(b.k) - ends.has(a.k)) || (b.lines.size - a.lines.size))){
+    for (const o of stations.slice().sort((a, b) => b.lines.size - a.lines.size)){
       if (!o.name) continue;
-      const p = P.get(o.k), term = V.caps && ends.has(o.k);
-      let txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
-      if (term) txt = txt.toLocaleUpperCase(LOCALE());
-      const fsz = term ? 12 : fs, wt = term ? 800 : o.inter ? 700 : 600;
-      const w = txt.length * fsz * (term ? 0.74 : 0.56), h = fsz * 1.2, g = o.r + 5;
-      // on a level run, names go on a slant (up-right, else down-left) so stops can sit close together
-      const slant = () => {
-        for (const [sx, sy, an] of [[1, -1, 'start'], [-1, 1, 'end']]){
-          const x = p.x + sx * (o.r + 3), y = p.y + sy * (o.r + 3), parts = hitDiag(x, y, w, sx, sy, h * 0.9);
-          if (parts.some(b => hitBox(b) || hitSeg(b))) continue;
-          boxes.push(...parts); for (const b of parts) grow(b.x, b.y, b.w, b.h);
-          labels.push(`<text x="${f(x)}" y="${f(y)}" transform="rotate(-45 ${f(x)} ${f(y)})" dy="0.35em" text-anchor="${an}" font-size="${fsz}" font-weight="${wt}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
-          return true;
-        }
-        return false;
-      };
-      if (V.slant && o.level && !term && slant()) continue;
+      const p = P.get(o.k), txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
+      const w = txt.length * fs * 0.56, h = fs * 1.2, g = o.r + 5;
       const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, g, 'middle'], [-w/2, -g - h, 'middle'], [g*0.7, g*0.7, 'start'], [g*0.7, -g*0.7 - h, 'start'], [-g*0.7 - w, g*0.7, 'end'], [-g*0.7 - w, -g*0.7 - h, 'end']];
       let pick = null;
       for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, an]; break; } }
-      if (!pick && V.slant && slant()) continue;
       if (!pick) for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, an]; break; } }
       if (!pick) continue;
       const [bx, an] = pick; boxes.push(bx); grow(bx.x, bx.y, w, h);
       const tx = an === 'start' ? bx.x : an === 'end' ? bx.x + w : bx.x + w/2;
-      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.8)}" text-anchor="${an}" font-size="${fsz}" font-weight="${wt}"${term ? ' letter-spacing="0.4"' : ''} fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
+      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.8)}" text-anchor="${an}" font-size="${fs}" font-weight="${o.inter ? 700 : 600}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
     }
   }
   // water: the game's lakes and sea, moved along with the stops around them
