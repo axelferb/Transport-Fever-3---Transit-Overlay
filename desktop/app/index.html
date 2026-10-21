@@ -2002,7 +2002,7 @@ function schemData(opts){
   for (const k of [...st.keys()]) if (!lines.some(L => L.edges.some(e => e[0] === k || e[1] === k))) st.delete(k);
   return {st, lines};
 }
-const SCHEM_STEP = 170, SCHEM_GAP = 105; // typical distance between neighbouring stops, and the least between any two
+const SCHEM_STEP = 140, SCHEM_GAP = 95; // typical distance between neighbouring stops, and the least between any two
 function schemLayout(D, geographic){
   const S0 = [...D.st.values()], E = new Map();
   D.lines.forEach(L => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!E.has(k)) E.set(k, [a, b]); }));
@@ -2017,7 +2017,7 @@ function schemLayout(D, geographic){
   if (!geographic){
     // stops where many lines meet get more room around them, for the bundle of lines and their badges
     const nL = new Map(S0.map(o => [o.k, o.lines.size])), gapOf = (a, b) => SCHEM_GAP + 10 * (nL.get(a) + nL.get(b) - 2);
-    const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(SCHEM_STEP * 0.7, gapOf(a, b), d <= SCHEM_STEP ? d : SCHEM_STEP * Math.pow(d / SCHEM_STEP, 0.35)); });
+    const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(gapOf(a, b), SCHEM_STEP * Math.pow(Math.max(1, d / SCHEM_STEP), 0.3)); }); // stops evenly spaced along the lines, long stretches only a little longer
     const keys = [...P.keys()];
     for (let it = 0; it < 600; it++){
       const a0 = 0.5 * (1 - it / 700);
@@ -2167,10 +2167,23 @@ function schemSVG(opts){
   const onEdge = new Map();
   D.lines.forEach((L, i) => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!onEdge.has(k)) onEdge.set(k, []); onEdge.get(k).push(i); }));
   const stations = [...D.st.values()];
+  // how the lines leave each stop: direction of the first bit of each stretch, and how many lines run side by side on it
+  for (const o of stations){ o.dirs = []; }
+  for (const [k, list] of onEdge){
+    const [a, b] = k.split('|'), pts = schemRoute(P.get(a), P.get(b));
+    const out = (u, v) => { const dx = v.x - u.x, dy = v.y - u.y, l = Math.hypot(dx, dy) || 1; return {x:dx / l, y:dy / l, n:list.length}; };
+    D.st.get(a).dirs.push(out(pts[0], pts[1])); D.st.get(b).dirs.push(out(pts[pts.length - 1], pts[pts.length - 2]));
+  }
   for (const o of stations){
-    const n = o.lines.size, bundle = Math.max(1, ...[...onEdge.entries()].filter(([k]) => k.split('|').includes(o.k)).map(([, v]) => v.length));
-    o.inter = n > 1;
-    o.r = o.inter ? (bundle * (W + GAP)) / 2 + 3.5 : W * 0.62;
+    o.inter = o.lines.size > 1;
+    o.level = o.dirs.some(d => Math.abs(d.y) < 0.05); // on a level run: name goes on a slant
+    if (o.inter){
+      // interchange: a capsule across the widest bundle of lines, like the bars on metro maps
+      const ds = o.dirs.slice().sort((a, b) => b.n - a.n), d = ds[0] || {x:1, y:0, n:1};
+      const across = Math.max(...ds.map(e => e.n)); // lines coming in from other directions end inside it too
+      o.pill = {len:Math.max(across * (W + GAP) + 9, 22), wid:13, ang:Math.atan2(d.y, d.x) * 180 / Math.PI + 90};
+      o.r = Math.max(o.pill.len, o.pill.wid) / 2;
+    } else o.r = W * 0.5;
   }
   // towns: each stop belongs to the town whose buildings it sits among
   const towns = new Map();
@@ -2197,12 +2210,12 @@ function schemSVG(opts){
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const grow = (x, y, w, h) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h); };
   for (const p of P.values()) grow(p.x, p.y, 0, 0);
-  // stops: a dot in the line's colour, a white ring where lines meet
+  // stops: a small white dot on the line; a capsule where lines meet
   for (const o of stations){
     const p = P.get(o.k), L = D.lines.find(l => o.lines.has(l.li));
     marks.push(o.inter
-      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>`
-      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`);
+      ? `<rect x="${f(-o.pill.len / 2)}" y="${f(-o.pill.wid / 2)}" width="${f(o.pill.len)}" height="${f(o.pill.wid)}" rx="${f(o.pill.wid / 2)}" transform="translate(${f(p.x)} ${f(p.y)}) rotate(${f(o.pill.ang)})" fill="${C.st}" stroke="${C.ink}" stroke-width="2.4"/>`
+      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(W * 0.3)}" fill="${C.st}"/>`);
     boxes.push({x:p.x - o.r, y:p.y - o.r, w:2*o.r, h:2*o.r});
   }
   // town boxes behind their stops (one per group of stops close together), name in small capitals
@@ -2223,15 +2236,16 @@ function schemSVG(opts){
       if (t.name) townLabels.push({name:t.name, bx0, by0, bx1, by1});
     }
   }
+  // each line's ends
+  const ends = new Map();
+  D.lines.forEach(L => {
+    const deg = new Map(); L.edges.forEach(([a, b]) => { deg.set(a, (deg.get(a) || 0) + 1); deg.set(b, (deg.get(b) || 0) + 1); });
+    let term = [...deg].filter(([, d]) => d === 1).map(([k]) => k);
+    if (!term.length && L.edges.length) term = [L.edges[0][0]];
+    for (const k of term){ if (!ends.has(k)) ends.set(k, []); if (!ends.get(k).includes(L)) ends.get(k).push(L); }
+  });
   // badges at each line's ends, stacked above the stop
   if (opts.badges !== false){
-    const ends = new Map();
-    D.lines.forEach(L => {
-      const deg = new Map(); L.edges.forEach(([a, b]) => { deg.set(a, (deg.get(a) || 0) + 1); deg.set(b, (deg.get(b) || 0) + 1); });
-      let term = [...deg].filter(([, d]) => d === 1).map(([k]) => k);
-      if (!term.length && L.edges.length) term = [L.edges[0][0]];
-      for (const k of term){ if (!ends.has(k)) ends.set(k, []); if (!ends.get(k).includes(L)) ends.get(k).push(L); }
-    });
     for (const [k, Ls] of ends){
       const p = P.get(k), o = D.st.get(k), bh = 14, gap = 2;
       const cols = Ls.length > 3 ? 2 : 1, cw = Math.max(...Ls.map(L => L.code.length * 6.6 + 10));
@@ -2257,18 +2271,38 @@ function schemSVG(opts){
     for (const [k] of onEdge){ const [a, b] = k.split('|'); const pts = schemRoute(P.get(a), P.get(b)); for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); }
     const hitSeg = bx => segs.some(([u, v]) => segBox(u, v, bx));
     const hitBox = bx => boxes.some(o => bx.x < o.x + o.w && bx.x + bx.w > o.x && bx.y < o.y + o.h && bx.y + bx.h > o.y);
-    for (const o of stations.slice().sort((a, b) => b.lines.size - a.lines.size)){
+    const hitDiag = (x, y, len, sx, sy, h) => { // a name on a 45° slant, tested as a run of small squares
+      const out = []; for (let t = h * 0.8; t < len + h * 0.8; t += h * 0.75){ const q = t / Math.SQRT2; out.push({x:x + sx*q - h/2, y:y + sy*q - h/2, w:h, h}); }
+      return out;
+    };
+    for (const o of stations.slice().sort((a, b) => (ends.has(b.k) - ends.has(a.k)) || (b.lines.size - a.lines.size))){
       if (!o.name) continue;
-      const p = P.get(o.k), txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
-      const w = txt.length * fs * 0.56, h = fs * 1.2, g = o.r + 5;
+      const p = P.get(o.k), term = ends.has(o.k);
+      let txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
+      if (term) txt = txt.toLocaleUpperCase(LOCALE());
+      const fsz = term ? 12 : fs, wt = term ? 800 : o.inter ? 700 : 600;
+      const w = txt.length * fsz * (term ? 0.74 : 0.56), h = fsz * 1.2, g = o.r + 5;
+      // on a level run, names go on a slant (up-right, else down-left) so stops can sit close together
+      const slant = () => {
+        for (const [sx, sy, an] of [[1, -1, 'start'], [-1, 1, 'end']]){
+          const x = p.x + sx * (o.r + 3), y = p.y + sy * (o.r + 3), parts = hitDiag(x, y, w, sx, sy, h * 0.9);
+          if (parts.some(b => hitBox(b) || hitSeg(b))) continue;
+          boxes.push(...parts); for (const b of parts) grow(b.x, b.y, b.w, b.h);
+          labels.push(`<text x="${f(x)}" y="${f(y)}" transform="rotate(-45 ${f(x)} ${f(y)})" dy="0.35em" text-anchor="${an}" font-size="${fsz}" font-weight="${wt}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
+          return true;
+        }
+        return false;
+      };
+      if (o.level && !term && slant()) continue;
       const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, g, 'middle'], [-w/2, -g - h, 'middle'], [g*0.7, g*0.7, 'start'], [g*0.7, -g*0.7 - h, 'start'], [-g*0.7 - w, g*0.7, 'end'], [-g*0.7 - w, -g*0.7 - h, 'end']];
       let pick = null;
       for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, an]; break; } }
+      if (!pick && slant()) continue;
       if (!pick) for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, an]; break; } }
       if (!pick) continue;
       const [bx, an] = pick; boxes.push(bx); grow(bx.x, bx.y, w, h);
       const tx = an === 'start' ? bx.x : an === 'end' ? bx.x + w : bx.x + w/2;
-      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.8)}" text-anchor="${an}" font-size="${fs}" font-weight="${o.inter ? 700 : 600}" fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
+      labels.push(`<text x="${f(tx)}" y="${f(bx.y + h*0.8)}" text-anchor="${an}" font-size="${fsz}" font-weight="${wt}"${term ? ' letter-spacing="0.4"' : ''} fill="${C.ink}" paint-order="stroke" stroke="${C.bg}" stroke-width="3" stroke-linejoin="round">${esc(txt)}</text>`);
     }
   }
   // water: the game's lakes and sea, moved along with the stops around them
