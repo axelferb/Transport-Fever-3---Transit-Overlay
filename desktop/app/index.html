@@ -2002,7 +2002,7 @@ function schemData(opts){
   for (const k of [...st.keys()]) if (!lines.some(L => L.edges.some(e => e[0] === k || e[1] === k))) st.delete(k);
   return {st, lines};
 }
-const SCHEM_STEP = 140, SCHEM_GAP = 95; // typical distance between neighbouring stops, and the least between any two
+const SCHEM_STEP = 180, SCHEM_GAP = 95; // typical distance between neighbouring stops, and the least between any two
 function schemLayout(D, geographic){
   const S0 = [...D.st.values()], E = new Map();
   D.lines.forEach(L => L.edges.forEach(([a, b]) => { const k = a + '|' + b; if (!E.has(k)) E.set(k, [a, b]); }));
@@ -2014,30 +2014,74 @@ function schemLayout(D, geographic){
   const k0 = SCHEM_STEP / Lm;
   for (const p of P.values()){ p.x *= k0; p.y *= k0; }
   const O = new Map([...P].map(([k, p]) => [k, {x:p.x, y:p.y}])); // positions before the layout moved them
-  if (!geographic){
-    // stops where many lines meet get more room around them, for the bundle of lines and their badges
-    const nL = new Map(S0.map(o => [o.k, o.lines.size])), gapOf = (a, b) => SCHEM_GAP + 10 * (nL.get(a) + nL.get(b) - 2);
-    const want = edges.map(([a, b]) => { const d = Math.hypot(P.get(a).x - P.get(b).x, P.get(a).y - P.get(b).y); return Math.max(gapOf(a, b), SCHEM_STEP * Math.pow(Math.max(1, d / SCHEM_STEP), 0.3)); }); // stops evenly spaced along the lines, long stretches only a little longer
-    const keys = [...P.keys()];
-    for (let it = 0; it < 600; it++){
-      const a0 = 0.5 * (1 - it / 700);
-      edges.forEach(([a, b], i) => {
-        const pa = P.get(a), pb = P.get(b), dx = pb.x - pa.x, dy = pb.y - pa.y, d = Math.hypot(dx, dy) || 1;
-        const th = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
-        const L = it < 150 ? d + (want[i] - d) * 0.5 : want[i];
-        const tx = Math.cos(th) * L, ty = Math.sin(th) * L, cx = (tx - dx) * a0 * 0.5, cy = (ty - dy) * a0 * 0.5;
-        pa.x -= cx; pa.y -= cy; pb.x += cx; pb.y += cy;
-      });
-      if (it % 3 === 0) for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++){
-        const p = P.get(keys[i]), q = P.get(keys[j]), dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy), g = gapOf(keys[i], keys[j]);
-        if (d < g && d > 0.01){ const f = (g - d) / d * 0.25; p.x -= dx*f; p.y -= dy*f; q.x += dx*f; q.y += dy*f; }
-        else if (d <= 0.01){ q.x += 3; }
-      }
-    }
-  }
-  if (!geographic) schemStraighten(P, edges);
+  if (!geographic) schemGrid(P, edges, new Map(S0.map(o => [o.k, o.lines.size])));
   schemPack(P, edges);
   return {P, edges, O, k0};
+}
+/* Metro-style layout on a grid: every stop gets its own grid point, and stops are moved one at a time to the
+   nearby point that best keeps stretches at 0°/45°/90°, about one step long, heading the way they really do,
+   without lines running over stops they don't serve or crossing other lines. */
+function schemGrid(P, edges, nLines){
+  const C = SCHEM_STEP / 3; // grid size; a typical stretch is three grid steps
+  const keys = [...P.keys()], G = new Map(), taken = new Map();
+  const cell = (x, y) => x + ',' + y;
+  // start: the nearest free grid point to each stop, busiest stops first
+  for (const k of keys.slice().sort((a, b) => nLines.get(b) - nLines.get(a))){
+    const p = P.get(k), gx = Math.round(p.x / C), gy = Math.round(p.y / C);
+    let best = null;
+    for (let r = 0; !best; r++) for (let dx = -r; dx <= r && !best; dx++) for (let dy = -r; dy <= r; dy++){
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      if (!taken.has(cell(gx + dx, gy + dy))){ best = {x:gx + dx, y:gy + dy}; break; }
+    }
+    G.set(k, best); taken.set(cell(best.x, best.y), k);
+  }
+  const home = new Map(keys.map(k => [k, {x:P.get(k).x / C, y:P.get(k).y / C}]));
+  const geoDir = edges.map(([a, b]) => Math.atan2(home.get(b).y - home.get(a).y, home.get(b).x - home.get(a).x));
+  const inc = new Map(keys.map(k => [k, []])); edges.forEach(([a, b], i) => { inc.get(a).push(i); inc.get(b).push(i); });
+  const segsOf = i => { const [a, b] = edges[i], pts = schemRoute(G.get(a), G.get(b)); const out = []; for (let j = 1; j < pts.length; j++) out.push([pts[j - 1], pts[j]]); return out; };
+  const dSeg = (p, u, v) => { const dx = v.x - u.x, dy = v.y - u.y, l2 = dx*dx + dy*dy; let t = l2 ? ((p.x - u.x)*dx + (p.y - u.y)*dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p.x - u.x - t*dx, p.y - u.y - t*dy); };
+  const cross = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q.x - p.x)*(r.y - p.y) - (q.y - p.y)*(r.x - p.x)); return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0; };
+  const want = 3;
+  const edgeCost = i => {
+    const [a, b] = edges[i], pa = G.get(a), pb = G.get(b), dx = pb.x - pa.x, dy = pb.y - pa.y, L = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx), off = Math.abs(ang / (Math.PI / 4) - Math.round(ang / (Math.PI / 4))) * (Math.PI / 4);
+    let dg = Math.abs(ang - geoDir[i]); if (dg > Math.PI) dg = 2*Math.PI - dg;
+    const room = 2 + 0.35 * (nLines.get(a) + nLines.get(b) - 2); // busier stops further apart
+    return off * 12 + Math.abs(L - Math.max(want, room)) * 1.2 + (L < room ? (room - L) * 8 : 0) + dg * 3;
+  };
+  // a stretch running over (or right past) a stop it doesn't stop at, and stretches crossing each other
+  const clashCost = i => {
+    const [a, b] = edges[i], sg = segsOf(i); let c = 0;
+    for (const k of keys){ if (k === a || k === b) continue; const p = G.get(k); for (const [u, v] of sg){ const d = dSeg(p, u, v); if (d < 0.9){ c += 40 * (0.9 - d) + 20; break; } } }
+    for (let j = 0; j < edges.length; j++){
+      if (j === i) continue; const [c1, d1] = edges[j]; if (c1 === a || c1 === b || d1 === a || d1 === b) continue;
+      const s2 = segsOf(j); if (sg.some(([u, v]) => s2.some(([w, z]) => cross(u, v, w, z)))) c += 14;
+    }
+    return c;
+  };
+  const stopCost = k => { const p = G.get(k); let c = Math.hypot(p.x - home.get(k).x, p.y - home.get(k).y) * 0.04;
+    for (let i = 0; i < edges.length; i++){ const [a, b] = edges[i]; if (a === k || b === k) continue; for (const [u, v] of segsOf(i)){ const d = dSeg(p, u, v); if (d < 0.9){ c += 40 * (0.9 - d) + 20; break; } } }
+    // neighbouring stops not closer than two grid steps
+    for (const q of keys){ if (q === k) continue; const g = G.get(q), d = Math.max(Math.abs(g.x - p.x), Math.abs(g.y - p.y)); if (d < 2) c += 30; }
+    return c;
+  };
+  const local = k => inc.get(k).reduce((s, i) => s + edgeCost(i) + clashCost(i), 0) + stopCost(k);
+  for (let pass = 0; pass < 25; pass++){
+    let moved = 0;
+    for (const k of keys){
+      const cur = G.get(k); let best = cur, bestC = local(k);
+      for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++){
+        if (!dx && !dy) continue; const nx = cur.x + dx, ny = cur.y + dy;
+        if (taken.has(cell(nx, ny))) continue;
+        G.set(k, {x:nx, y:ny}); const c = local(k);
+        if (c < bestC - 1e-6){ bestC = c; best = {x:nx, y:ny}; }
+      }
+      G.set(k, best);
+      if (best !== cur){ taken.delete(cell(cur.x, cur.y)); taken.set(cell(best.x, best.y), k); moved++; }
+    }
+    if (!moved) break;
+  }
+  for (const k of keys){ const g = G.get(k), p = P.get(k); p.x = g.x * C; p.y = g.y * C; }
 }
 /* Separate networks (towns far apart with no line between them) are slid towards each other until
    they nearly touch, keeping which one is north, south, east or west of which. */
@@ -2141,9 +2185,11 @@ function schemSVG(opts){
   const D = schemData(opts);
   if (!D.lines.length) return null;
   const {P, O, k0} = schemLayout(D, opts.layout === 'geo');
+  const V = Object.assign({marker:'pill', slant:true, caps:true}, window.__schemVariant || {}); // MOCKUP: design variants
   const dark = opts.style === 'dark';
   const C = dark
-    ? {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
+    ? V.slate ? {bg:'#33363B', ink:'#FFFFFF', muted:'#A9AEB4', st:'#33363B', rule:'#4A4E54', box:'rgba(255,255,255,0.05)', boxLine:'rgba(255,255,255,0.14)', water:'#22384A', town:'#B5BAC0'}
+    : {bg:'#15181C', ink:'#ECEAE5', muted:'#8C939C', st:'#15181C', rule:'#2C3238', box:'rgba(255,255,255,0.045)', boxLine:'rgba(255,255,255,0.13)', water:'#22384A', town:'#7E8791'}
     : {bg:'#F3F2EE', ink:'#1C2026', muted:'#6B727B', st:'#FFFFFF', rule:'#D9D6CE', box:'rgba(40,48,40,0.045)', boxLine:'rgba(60,70,60,0.22)', water:'#CADCE6', town:'#5E6670'};
   const W = 6.5, GAP = 1.5, RAD = 28;
   const font = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
@@ -2177,13 +2223,14 @@ function schemSVG(opts){
   for (const o of stations){
     o.inter = o.lines.size > 1;
     o.level = o.dirs.some(d => Math.abs(d.y) < 0.05); // on a level run: name goes on a slant
-    if (o.inter){
+    if (o.inter && V.marker === 'pill'){
       // interchange: a capsule across the widest bundle of lines, like the bars on metro maps
       const ds = o.dirs.slice().sort((a, b) => b.n - a.n), d = ds[0] || {x:1, y:0, n:1};
       const across = Math.max(...ds.map(e => e.n)); // lines coming in from other directions end inside it too
       o.pill = {len:Math.max(across * (W + GAP) + 9, 22), wid:13, ang:Math.atan2(d.y, d.x) * 180 / Math.PI + 90};
       o.r = Math.max(o.pill.len, o.pill.wid) / 2;
-    } else o.r = W * 0.5;
+    } else if (o.inter){ const bundle = Math.max(1, ...o.dirs.map(d => d.n)); o.r = (bundle * (W + GAP)) / 2 + 3.5; }
+    else o.r = V.marker === 'pill' ? W * 0.5 : W * 0.62;
   }
   // towns: each stop belongs to the town whose buildings it sits among
   const towns = new Map();
@@ -2213,14 +2260,18 @@ function schemSVG(opts){
   // stops: a small white dot on the line; a capsule where lines meet
   for (const o of stations){
     const p = P.get(o.k), L = D.lines.find(l => o.lines.has(l.li));
-    marks.push(o.inter
-      ? `<rect x="${f(-o.pill.len / 2)}" y="${f(-o.pill.wid / 2)}" width="${f(o.pill.len)}" height="${f(o.pill.wid)}" rx="${f(o.pill.wid / 2)}" transform="translate(${f(p.x)} ${f(p.y)}) rotate(${f(o.pill.ang)})" fill="${C.st}" stroke="${C.ink}" stroke-width="2.4"/>`
-      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(W * 0.3)}" fill="${C.st}"/>`);
+    marks.push(o.inter && V.marker !== 'pill'
+      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${C.ink}" stroke-width="2.6"/>`
+      : !o.inter && V.marker !== 'pill'
+      ? `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(o.r)}" fill="${C.st}" stroke="${L ? L.color : C.ink}" stroke-width="2.2"/>`
+      : o.inter
+      ? `<rect x="${f(-o.pill.len / 2)}" y="${f(-o.pill.wid / 2)}" width="${f(o.pill.len)}" height="${f(o.pill.wid)}" rx="${f(o.pill.wid / 2)}" transform="translate(${f(p.x)} ${f(p.y)}) rotate(${f(o.pill.ang)})" fill="${dark ? '#E4E4E4' : C.st}" stroke="${dark ? '#15181C' : C.ink}" stroke-width="2.4"/>`
+      : `<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(W * 0.3)}" fill="#FFFFFF"/>`);
     boxes.push({x:p.x - o.r, y:p.y - o.r, w:2*o.r, h:2*o.r});
   }
   // town boxes behind their stops (one per group of stops close together), name in small capitals
   const townLabels = [];
-  if (opts.towns !== false) for (const t of towns.values()){
+  if (opts.towns !== false && V.towns !== false) for (const t of towns.values()){
     const groups = [];
     for (const o of t.st){
       const p = P.get(o.k), near = groups.filter(g => g.some(q => Math.hypot(P.get(q.k).x - p.x, P.get(q.k).y - p.y) < SCHEM_STEP * 1.85));
@@ -2277,7 +2328,7 @@ function schemSVG(opts){
     };
     for (const o of stations.slice().sort((a, b) => (ends.has(b.k) - ends.has(a.k)) || (b.lines.size - a.lines.size))){
       if (!o.name) continue;
-      const p = P.get(o.k), term = ends.has(o.k);
+      const p = P.get(o.k), term = V.caps && ends.has(o.k);
       let txt = o.name.length > 28 ? o.name.slice(0, 27) + '…' : o.name;
       if (term) txt = txt.toLocaleUpperCase(LOCALE());
       const fsz = term ? 12 : fs, wt = term ? 800 : o.inter ? 700 : 600;
@@ -2293,11 +2344,11 @@ function schemSVG(opts){
         }
         return false;
       };
-      if (o.level && !term && slant()) continue;
+      if (V.slant && o.level && !term && slant()) continue;
       const cands = [[g, -h/2, 'start'], [-g - w, -h/2, 'end'], [-w/2, g, 'middle'], [-w/2, -g - h, 'middle'], [g*0.7, g*0.7, 'start'], [g*0.7, -g*0.7 - h, 'start'], [-g*0.7 - w, g*0.7, 'end'], [-g*0.7 - w, -g*0.7 - h, 'end']];
       let pick = null;
       for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx) && !hitSeg(bx)){ pick = [bx, an]; break; } }
-      if (!pick && slant()) continue;
+      if (!pick && V.slant && slant()) continue;
       if (!pick) for (const [dx, dy, an] of cands){ const bx = {x:p.x + dx, y:p.y + dy, w, h}; if (!hitBox(bx)){ pick = [bx, an]; break; } }
       if (!pick) continue;
       const [bx, an] = pick; boxes.push(bx); grow(bx.x, bx.y, w, h);
