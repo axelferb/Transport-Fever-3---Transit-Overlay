@@ -132,6 +132,15 @@ function labelBlock(g, st, sg, u, side, withBadges){
   };
   return {x0:left, y0:top, x1:left + blockW, y1:top + blockH, draw};
 }
+/* A station building (bus or tram station, railway station) gets a plate behind its marker: a rounded
+   square in the station ink, so it reads as a building where a plain stop reads as a dot on the road. */
+function drawBuildingPlate(g, A, B, r, u){
+  const pad = 5.5*u, x0 = Math.min(A.x, B.x) - r - pad, y0 = Math.min(A.y, B.y) - r - pad;
+  const w = Math.abs(B.x - A.x) + 2*r + 2*pad, h = Math.abs(B.y - A.y) + 2*r + 2*pad, rr = 4.5*u;
+  g.beginPath(); g.roundRect(x0, y0, w, h, rr); g.fillStyle = STATION_INK; g.fill();
+  g.lineWidth = 2*u; g.strokeStyle = 'rgba(255,255,255,0.95)'; g.stroke();
+  g.beginPath(); g.roundRect(x0 + 3*u, y0 + 3*u, w - 6*u, h - 6*u, rr - 2*u); g.lineWidth = 1.2*u; g.strokeStyle = 'rgba(255,255,255,0.45)'; g.stroke();
+}
 function drawStations(g, G, u){
   const items = [];
   for (const [k, st] of Object.entries(S.stations)){
@@ -139,6 +148,7 @@ function drawStations(g, G, u){
     const {A, B, r, ring} = sg;
     const B2 = (A.x === B.x && A.y === B.y) ? {x:B.x + 0.01, y:B.y} : B;
     g.setLineDash([]); g.lineCap = 'round';
+    if (st.building) drawBuildingPlate(g, A, B2, r, u);
     if (sg.inter){ g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 2*r + 3*u; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke(); }
     g.strokeStyle = STATION_INK; g.lineWidth = 2*r; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke();
     g.strokeStyle = (S.game && S.game.xf && !st.game) ? COV.accent : '#fff'; g.lineWidth = 2*r - 2*ring; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(B2.x, B2.y); g.stroke();

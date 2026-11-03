@@ -75,9 +75,15 @@ function ui(){
     const planning = !!(st && S.game && S.game.xf);
     $('#stRadiusRow').hidden = !planning || st.game; $('#stReach').hidden = !planning; $('#stPayoff').hidden = !planning || st.game;
     if (planning){
-      if (st.game) $('#stReach').textContent = T('Stop from the game · reach {r} m', {r:st.r || '?'});
+      if (st.game){
+        // What the game itself says this stop reaches: the buildings in its catchment, by capacity.
+        const ids = new Set(S.game.catch[st.sg] || []), got = [0, 0, 0];
+        for (const b of S.game.buildings){ if (!CATS[b[4]]) continue; if (ids.has(b[0]) || (b[6] != null && ids.has(b[6]))) got[b[4]] += b[3]; }
+        const kind = st.building ? T('Station building ({t} terminals)', {t:st.terminals || '?'}) : T('Stop on the road');
+        $('#stReach').textContent = kind + ' · ' + T('reach {r} m · the game counts {a} residents and {b} jobs in its catchment', {r:st.r || '?', a:got[0].toLocaleString(LOCALE()), b:(got[1] + got[2]).toLocaleString(LOCALE())});
+      }
       else {
-        setVal($('#stRadius'), st.radius || 160);
+        setVal($('#stRadius'), st.radius || defaultReach());
         const mine = planCoverage().per[n] || new Set(), cov = gameCovered();
         const add = [0, 0, 0], tot = [0, 0, 0];
         for (const b of S.game.buildings){ if (!mine.has(b[0]) || !CATS[b[4]]) continue; tot[b[4]] += b[3]; if (!isServed(b, cov)) add[b[4]] += b[3]; }
@@ -163,7 +169,7 @@ $('#brDel').addEventListener('click', () => { if (sel.branch){ sel.node = null; 
 $('#stName').addEventListener('input', e => { const st = S.stations[sel.node]; if (!st) return; liveEdit(); st.name = e.target.value; draw(); autosave(); });
 $('#stName').addEventListener('change', settle);
 $('#stSide').addEventListener('change', e => { const st = S.stations[sel.node]; if (!st) return; commit(); st.side = e.target.value; ui(); draw(); });
-$('#stRadius').addEventListener('change', e => { const st = S.stations[sel.node]; if (!st) return; commit(); st.radius = Math.max(50, Math.min(1000, +e.target.value || 160)); ui(); draw(); });
+$('#stRadius').addEventListener('change', e => { const st = S.stations[sel.node]; if (!st) return; commit(); st.radius = Math.max(50, Math.min(1000, +e.target.value || defaultReach())); ui(); draw(); });
 $('#stBadges').addEventListener('change', e => { const st = S.stations[sel.node]; if (!st) return; commit(); st.badges = e.target.checked; ui(); draw(); });
 $('#stToggle').addEventListener('click', () => {
   if (sel.node == null) return; commit();

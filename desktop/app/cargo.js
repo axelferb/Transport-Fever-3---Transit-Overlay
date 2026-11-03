@@ -38,7 +38,7 @@ let cargoPlan = {sig:null, set:null};
 function cargoPlanStops(){
   if (!S.game || !S.game.xf) return [];
   const out = [];
-  for (const k in S.stations){ const st = S.stations[k]; if (st.game || !S.nodes[k] || !isCargoStop(+k)) continue; const w = I2W(S.nodes[k]); out.push({id:+k, x:w.x, y:w.y, r:+st.radius || 160}); }
+  for (const k in S.stations){ const st = S.stations[k]; if (st.game || !S.nodes[k] || !isCargoStop(+k)) continue; const w = I2W(S.nodes[k]); out.push({id:+k, x:w.x, y:w.y, r:+st.radius || cargoRadius()}); }
   return out;
 }
 // Industries and businesses reached by a cargo stop in the game or by a cargo stop you planned (circle reach).
