@@ -38,6 +38,7 @@ function lineStatsText(l){
   return parts.join(' · ');
 }
 function ui(){
+  invalidateScene();
   renderLegend();
   gameUI();
   cargoUI();

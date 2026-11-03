@@ -84,7 +84,7 @@ function migrate(l){
 const brEnd = b => activeAtStart ? b.path[0] : b.path[b.path.length-1];
 
 function snapshot(){ return JSON.stringify({nodes:S.nodes, lines:S.lines, stations:S.stations, nextId:S.nextId}); }
-function commit(){ hist.u.push(snapshot()); if (hist.u.length > 200) hist.u.shift(); hist.r = []; pendingSnap = null; }
+function commit(){ hist.u.push(snapshot()); if (hist.u.length > 200) hist.u.shift(); hist.r = []; pendingSnap = null; if (typeof invalidateScene === 'function') invalidateScene(); }
 function liveEdit(){ if (!pendingSnap) pendingSnap = snapshot(); }
 function settle(){ if (pendingSnap){ hist.u.push(pendingSnap); hist.r = []; pendingSnap = null; ui(); } }
 function restore(s){

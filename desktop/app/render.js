@@ -252,7 +252,7 @@ function renderScene(g, screen){
     const live = screen && bg.kind === 'game' && S.game && gameMapCache.game === S.game && gameMapCache.base && S.game.xf && S.settings.vectorMap !== false;
     if (live){ // the game map drawn at this zoom: terrain from the base bitmap, roads and buildings as vectors
       g.drawImage(gameMapCache.base, 0, 0, bg.w, bg.h);
-      const z = view.z, clip = {x0:(-view.x)/z, y0:(-view.y)/z, x1:(cw - view.x)/z, y1:(ch - view.y)/z};
+      const z = view.z, clip = sceneClip || {x0:(-view.x)/z, y0:(-view.y)/z, x1:(cw - view.x)/z, y1:(ch - view.y)/z};
       g.save(); g.beginPath(); g.rect(0, 0, bg.w, bg.h); g.clip(); drawMapContent(g, pxPerM(), z, clip); g.restore();
     } else g.drawImage(bg.img, 0, 0, bg.w, bg.h);
     g.restore();
@@ -273,13 +273,41 @@ function renderScene(g, screen){
 const cvs = $('#map'), ctx = cvs.getContext('2d'), stage = $('#stage');
 let dpr = 1, cw = 0, ch = 0, raf = 0;
 function draw(){ if (!raf) raf = requestAnimationFrame(() => { raf = 0; paint(); }); }
+/* The scene (map, lines, stations, labels, overlays) is drawn once into an offscreen layer a bit larger than the
+   view and reused until something it depends on changes: the model (a signature of lines, nodes, stops and
+   settings, plus ui() and commit() marking it stale), the zoom, the selection, the tab. Mouse moves and pans
+   then only blit the layer; a pan beyond the layer's margin draws it again around the new position. */
+let sceneLayer = {c:null, key:null, vx:0, vy:0, mx:0, my:0, bg:null, stale:true}, sceneClip = null; // the image rect the layer covers, for culling
+function invalidateScene(){ sceneLayer.stale = true; }
+function sceneSig(){
+  let nx = 0, ny = 0, nn = 0;
+  for (const k in S.nodes){ const n = S.nodes[k]; nx += n.x; ny += n.y; nn++; }
+  const ls = S.lines.map(l => [l.id, l.name, l.mode, l.color, l.hidden ? 1 : 0, l.cargo ? 1 : 0, l.branches.map(b => b.path.join(',')).join(';'), Object.keys(l.oneway || {}).join(',')].join('\u0001')).join('\u0002');
+  const ss = Object.entries(S.stations).map(([k, st]) => [k, st.name, st.side, st.badges, st.radius, st.solo ? 1 : 0, st.cargo ? 1 : 0].join('\u0001')).join('\u0002');
+  const g = S.game ? [S.game.at, S.game.focus, S.game.rot, S.game.xf && S.game.xf.kind, !!(gameMapCache && gameMapCache.base)].join(',') : '';
+  return [nn, nx.toFixed(2), ny.toFixed(2), ls, ss, g, JSON.stringify(S.settings), activeTab, tool === 'cut' ? JSON.stringify(hoverSeg) : '', sel.line, sel.seg, sel.branch && sel.line != null ? (lineById(sel.line) || {branches:[]}).branches.indexOf(sel.branch) : -1, activeLine, typeof sel_ind !== 'undefined' ? sel_ind : '', typeof sel_bld !== 'undefined' ? sel_bld : '', LANG, S.example ? 1 : 0, bg.w, bg.h, bg.kind].join('\u0003');
+}
 function paint(){
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim() || '#ccc';
   ctx.fillRect(0, 0, cw, ch);
+  const L = sceneLayer, mx = Math.ceil(cw*0.3), my = Math.ceil(ch*0.3); // margin: pans this far reuse the layer
+  const key = sceneSig() + '\u0004' + view.z + ',' + cw + 'x' + ch + ',' + dpr;
+  if (!L.c || L.stale || L.key !== key || L.bg !== bg.img || Math.abs(view.x - L.vx) > L.mx || Math.abs(view.y - L.vy) > L.my){
+    const W = Math.max(1, Math.round((cw + 2*mx)*dpr)), H = Math.max(1, Math.round((ch + 2*my)*dpr));
+    if (!L.c){ L.c = document.createElement('canvas'); }
+    if (L.c.width !== W || L.c.height !== H){ L.c.width = W; L.c.height = H; }
+    const g = L.c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    g.setTransform(dpr*view.z, 0, 0, dpr*view.z, dpr*(view.x + mx), dpr*(view.y + my));
+    g.save(); g.shadowColor = 'rgba(0,0,0,0.25)'; g.shadowBlur = 18*dpr; g.fillStyle = '#fff'; g.fillRect(0, 0, bg.w, bg.h); g.restore();
+    sceneClip = {x0:(-view.x - mx)/view.z, y0:(-view.y - my)/view.z, x1:(cw + mx - view.x)/view.z, y1:(ch + my - view.y)/view.z};
+    try { renderScene(g, true); } finally { sceneClip = null; }
+    Object.assign(L, {key, vx:view.x, vy:view.y, mx, my, bg:bg.img, stale:false});
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(L.c, Math.round((view.x - L.vx - L.mx)*dpr), Math.round((view.y - L.vy - L.my)*dpr));
   ctx.setTransform(dpr*view.z, 0, 0, dpr*view.z, dpr*view.x, dpr*view.y);
-  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 18*dpr; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, bg.w, bg.h); ctx.restore();
-  renderScene(ctx, true);
   const z = view.z, u = U();
 
   if ((tool === 'edit' || tool === 'inspect') && (activeTab === 'lines' || activeTab === 'coverage')){
