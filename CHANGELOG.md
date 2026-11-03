@@ -11,6 +11,7 @@
 - Heatmaps: four looks in ⚙ Settings → Map display: Ember, Field guide, Bands, Sea.
 - Mod revision 6: exports every catchment circle, station buildings vs road stops, and vehicles per line. Restart the game so mod.io updates it, or copy the console command again, then re-import.
 - Under the hood: the app is split into one file per area instead of one 4,300-line page.
+- Schematic map, redrawn for bus networks after LOOM (Freiburg): stretches shared by several lines become one corridor with the lines ordered so they need not cross where they part; stations have one port per line, so a terminal where three or more lines end is a hub box with the station's name and a bay per line in the order they leave; a line that doubles back round a ring of stops is drawn as one stroke that forks into a box (three stops make a triangle); each line leaving a terminal keeps to its own wedge of the compass, stops keep off stretches and loops they are not part of, and everything is spread further out.
 
 ## 2.11.0
 - Game map: roads are drawn by size and type, like a road atlas — lanes thin, town streets white, avenues yellow, country roads grey-edged, highways orange. Needs mod revision 5 (restart the game so mod.io updates it) or a freshly copied console command, then re-import.
