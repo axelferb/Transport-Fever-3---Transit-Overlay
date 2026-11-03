@@ -67,13 +67,15 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 function goodsRows(box, id, st){
   box.textContent = '';
   const flows = (S.game.flows || []).filter(f => f.tgt === id), groups = new Map();
+  // an industry's own output lying in its stock: source = target; shown as waiting for pickup, not as incoming
+  const own = new Map();
   for (const f of flows){
+    if (f.src === id){ own.set(f.cargo, (own.get(f.cargo) || 0) + f.veh + f.term + f.stock + f.other); continue; }
     const key = f.cargo + ':' + f.src;
     let gr = groups.get(key); if (!gr){ gr = {cargo:f.cargo, src:f.src, n:0, veh:0, stock:0, other:0, term:new Map(), lines:[]}; groups.set(key, gr); }
     gr.n += f.veh + f.term + f.stock + f.other; gr.veh += f.veh; gr.stock += f.stock; gr.other += f.other;
-    let at = null;
-    for (const x of f.lines){ if (!gr.lines.includes(x.line)) gr.lines.push(x.line); if (x.s0 >= 0) at = stopNameAt(x.line, x.s0); }
-    if (f.term){ const k = at || T('a station'); gr.term.set(k, (gr.term.get(k) || 0) + f.term); }
+    for (const x of f.lines) if (!gr.lines.includes(x.line)) gr.lines.push(x.line);
+    if (f.term){ const grp = f.at >= 0 && S.game.groups[f.at], k = grp ? grp.name : T('a station'); gr.term.set(k, (gr.term.get(k) || 0) + f.term); }
   }
   const list = [...groups.values()].sort((a, b) => b.n - a.n);
   const covered = new Set(list.map(g => g.cargo));
@@ -101,7 +103,12 @@ function goodsRows(box, id, st){
     }
     box.append(row);
   }
-  return list.length;
+  for (const [cargo, n] of [...own.entries()].sort((a, b) => b[1] - a[1])){
+    const row = el('div', 'bld-good');
+    row.append(el('span', 'g', cargoName(cargo)), el('span', 'n', n.toLocaleString(LOCALE())), el('span', 'src', T('Made here, waiting for pickup')));
+    box.append(row);
+  }
+  return list.length + own.size;
 }
 function buildingUI(){
   const G = S.game, b = bldById(sel_bld), panel = $('#bldPanel');

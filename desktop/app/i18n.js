@@ -455,6 +455,7 @@ const STRINGS = {de:{
   "{n} in vehicles": "{n} in Fahrzeugen",
   "{n} waiting at {stop}": "{n} warten bei {stop}",
   "{n} at the source": "{n} an der Quelle",
+  "Made here, waiting for pickup": "Hier hergestellt, wartet auf Abholung",
   "{n} on the way to a stop": "{n} unterwegs zu einer Haltestelle",
   "Who travels here and where goods come from needs mod revision 7. Restart the game so mod.io updates the mod, or check that you're subscribed, then export again.": "Wer hierher reist und woher Güter kommen, braucht Mod-Revision 7. Starte das Spiel neu, damit mod.io die Mod aktualisiert, oder prüfe dein Abonnement, und exportiere dann erneut.",
   "Nobody is linked to this building yet.": "Mit diesem Gebäude ist noch niemand verknüpft.",

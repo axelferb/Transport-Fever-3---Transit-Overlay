@@ -54,7 +54,7 @@ function parseExport(text){
     else if (p[1] === 'P'){ for (const r of p[2].split(';')){ const f = r.split(',').map(Number); if (f.length < 6 || f.some(isNaN)) continue; (G.people[f[0]] = G.people[f[0]] || {})[f[1]] = f.slice(2, 6); } } // building,role,walk,drive,lines,other
     else if (p[1] === 'Q'){ for (const r of p[2].split(';')){ const f = r.split(',').map(Number); if (f.length < 6 || f.some(isNaN)) continue; (G.trips[f[0]] = G.trips[f[0]] || []).push({role:f[1], line:f[2], s0:f[3], s1:f[4], n:f[5]}); } } // building,role,line,stop0,stop1,people
     else if (p[1] === 'F'){ for (const r of p[2].split(';')){ const f = r.split(','); if (f.length < 8) continue; const [tgt, cargo, src, veh, term, stock, other] = [f[0], f[1], f[2], f[4], f[5], f[6], f[7]].map(Number); if ([tgt, cargo, src, veh, term, stock, other].some(isNaN)) continue;
-      G.flows.push({tgt, cargo, src, lines:f[3].split('/').filter(Boolean).map(x => { const q = x.split(':').map(Number); return {line:q[0], s0:q[1], s1:q[2]}; }), veh, term, stock, other}); } } // target,cargo,source,line:stop0:stop1/…,in vehicle,at terminal,at stock,other
+      G.flows.push({tgt, cargo, src, lines:f[3].split('/').filter(Boolean).map(x => { const q = x.split(':').map(Number); return {line:q[0], s0:q[1], s1:q[2]}; }), veh, term, stock, other, at:f[8] != null && !isNaN(+f[8]) ? +f[8] : -1}); } } // target,cargo,source,line:stop0:stop1/…,in vehicle,at a station,at stock,other,stop group waited at
     else if (p[1] === 'ERR') G.errors.push(p.slice(2).join(' '));
   }
   if (!G.lines.length && !G.buildings.length) throw new Error('The export in that file is empty. Check the console for errors.');
