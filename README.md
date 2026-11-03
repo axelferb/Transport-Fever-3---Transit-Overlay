@@ -73,7 +73,19 @@ desktop/                    the Electron app
   main.js                   window, log discovery, live watcher
   logtools.js               finds the game log and the newest export in it
   preload.js                bridge for the page (window.desktop)
-  app/index.html            the app itself
+  app/index.html            the page: markup and the script tags, in load order
+  app/app.css               styles
+  app/i18n.js               language and theme, German strings
+  app/model.js              project state, the line/station model, undo, geometry, hit testing
+  app/render.js             drawing the map canvas
+  app/interact.js           pointer, keyboard and tools
+  app/files.js              images, project files, drag-and-drop
+  app/schematic.js          the schematic (metro-style) map
+  app/example.js            the example map
+  app/game.js               Transport Fever 3 import, coverage, roads, game map, terrain, gaps
+  app/cargo.js              industries and deliveries
+  app/ui.js                 side panel, settings, event listeners, desktop bridge, tabs
+  app/boot.js               start-up
 console/                    the same exporter as a console command (regenerate with `npm run export-cmd` in desktop/)
 ```
 

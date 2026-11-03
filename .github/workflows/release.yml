@@ -69,7 +69,7 @@ jobs:
         run: |
           json=$(node -p "require('./mod/transit_overlay/mod.json').revision")
           lua=$(grep -o 'TFO|BEGIN|1|mod:[0-9]*' mod/transit_overlay/content/transit_overlay/export.lua | cut -d: -f2)
-          app=$(grep -o 'MOD_REVISION = [0-9]*' desktop/app/index.html | grep -o '[0-9]*$')
+          app=$(grep -o 'MOD_REVISION = [0-9]*' desktop/app/game.js | grep -o '[0-9]*$')
           echo "mod.json $json, export.lua $lua, app $app"
           [ "$json" = "$lua" ] && [ "$json" = "$app" ] || { echo "::error::Mod revision differs: mod.json $json, export.lua $lua, app $app"; exit 1; }
 

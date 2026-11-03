@@ -1,7 +1,7 @@
 // Regenerates the console export command from the mod's export.lua:
 //   console/tfo_export.lua          readable, BEGIN line says "console" instead of "mod:N"
 //   console/tfo_export_oneline.lua  minified one-liner (the game console drops pastes over ~9.5 kB)
-//   desktop/app/index.html          the EXPORT_CMD constant, same one-liner
+//   desktop/app/game.js             the EXPORT_CMD constant, same one-liner
 // Run after every change to export.lua:  cd desktop && npm run export-cmd
 const fs = require('fs'), path = require('path'), luamin = require('luamin');
 const root = path.join(__dirname, '..', '..');
@@ -14,8 +14,8 @@ const readable = body.join('\n') + '\n';
 fs.writeFileSync(path.join(root, 'console/tfo_export.lua'), readable);
 const min = luamin.minify(readable);
 fs.writeFileSync(path.join(root, 'console/tfo_export_oneline.lua'), min + '\n');
-const html = path.join(root, 'desktop/app/index.html'), h = fs.readFileSync(html, 'utf8');
+const html = path.join(root, 'desktop/app/game.js'), h = fs.readFileSync(html, 'utf8');
+if (!/const EXPORT_CMD = ".*";\n/.test(h)) throw new Error('EXPORT_CMD not found in game.js');
 const h2 = h.replace(/const EXPORT_CMD = ".*";\n/, 'const EXPORT_CMD = ' + JSON.stringify(min) + ';\n');
-if (h2 === h) throw new Error('EXPORT_CMD not found in index.html');
-fs.writeFileSync(html, h2);
+if (h2 !== h) fs.writeFileSync(html, h2);
 console.log(`console command: ${min.length} bytes (readable ${readable.length})`);
