@@ -1,7 +1,4 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Transit Overlay</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;700;800&family=Overpass+Mono:wght@400;600&display=swap">
 <style>
 /* Layout: tool strip across the top, map canvas fills the left, inspector rail on the right; stacks on phones */
 @font-face{font-family:"Rubik";font-style:normal;font-weight:300 900;font-display:swap;src:url("fonts/rubik-latin-wght-normal.woff2") format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
@@ -65,7 +62,6 @@ header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-heig
 header.bar .btn{background:var(--head-well);border-color:var(--head-rule);color:var(--head-ink);box-shadow:none}
 header.bar .btn.primary{background:var(--accent);border-color:#D99700;color:var(--accent-ink);box-shadow:0 2px 0 var(--accent-edge)}
 header.bar .gear[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:#D99700;box-shadow:0 2px 0 var(--accent-edge)}
-.rail section.tabhide{display:none!important}
 .rail-title{font-size:18px;font-weight:800;margin:0 2px}
 .btn{border:2px solid var(--rule);background:var(--panel);color:var(--ink);border-radius:10px;height:36px;padding:0 14px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 0 var(--rule);box-sizing:border-box}
 .btn:hover{filter:brightness(.97)}
@@ -3292,75 +3288,20 @@ function gapData(){
   const cov = gameCovered(), pc = planCoverage(), types = covTypes();
   const sig = [S.game.at, pc.sig, S.game.focus, types.join(), S.settings.roadSnap !== false].join('#');
   if (gapCache.sig === sig) return gapCache;
-  const pts = S.game.buildings.filter(b => types[b[4]] && inFocus(b) && b[3] > 0 && !servedBy(b, cov, pc.set));
-  const R = gapRadius(), CELL = Math.max(20, R / 4), rr = Math.ceil(R / CELL), spots = [];
-  const left = new Map(pts.map(b => [b[0], b]));
-  const snap = S.settings.roadSnap !== false && S.game.edges && S.game.edges.length;
-  for (let n = 0; n < 5 && left.size; n++){
-    const score = new Map();
-    for (const b of left.values()){
-      const cx = Math.floor(b[1] / CELL), cy = Math.floor(b[2] / CELL);
-      for (let i = -rr; i <= rr; i++) for (let j = -rr; j <= rr; j++){
-        if (Math.hypot((cx + i + 0.5)*CELL - b[1], (cy + j + 0.5)*CELL - b[2]) > R) continue;
-        const k = (cx + i) + ',' + (cy + j); score.set(k, (score.get(k) || 0) + b[3]);
-      }
-    }
-    let best = null, bs = 0;
-    for (const [k, v] of score){
-      if (v <= bs) continue;
-      const [ci, cj] = k.split(',').map(Number); // keep spots apart, so each one is a different place
-      if (spots.some(o => Math.hypot((ci + 0.5)*CELL - o.x, (cj + 0.5)*CELL - o.y) < R*1.2)) continue;
-      bs = v; best = k;
-    }
-    if (!best || bs < 20) break;
-    const [i, j] = best.split(',').map(Number);
-    let x = (i + 0.5)*CELL, y = (j + 0.5)*CELL;
-    if (snap){ const rn = nearStreet(x, y, R * 0.5); if (rn){ const q = roadGraph().nodes.get(rn.n); x = q[0]; y = q[1]; } }
-    const s = {x, y, r:R, people:[0, 0, 0], town:{}};
-    for (const [id, b] of left) if (Math.hypot(b[1] - x, b[2] - y) <= R){ s.people[b[4]] += b[3]; s.town[b[5]] = (s.town[b[5]] || 0) + b[3]; left.delete(id); }
-    const tid = Object.entries(s.town).sort((a, b) => b[1] - a[1])[0];
-    s.townName = tid ? (S.game.towns[tid[0]] || '') : '';
-    s.total = s.people[0] + s.people[1] + s.people[2];
-    if (s.total > 0) spots.push(s);
-  }
-  spots.sort((a, b) => b.total - a.total);
+  // one item per unreached building: its people count is the weight, its type and town come along for the spot summary
+  const pts = S.game.buildings.filter(b => types[b[4]] && inFocus(b) && b[3] > 0 && !servedBy(b, cov, pc.set))
+    .map(b => ({x:b[1], y:b[2], w:b[3], t:b[4], town:b[5]}));
+  const R = gapRadius();
+  const spots = pickSpots(pts, R, 20).map(s => {
+    const people = [0, 0, 0], town = {};
+    for (const it of s.items){ people[it.t] += it.w; town[it.town] = (town[it.town] || 0) + it.w; }
+    const tid = Object.entries(town).sort((a, b) => b[1] - a[1])[0];
+    return {...s, people, town, townName:tid ? (S.game.towns[tid[0]] || '') : '', total:people[0] + people[1] + people[2]};
+  }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
   return gapCache = {sig, pts, spots, R, heat:null};
 }
-function drawGapHeat(g){
-  const D = gapData(); if (!D.pts.length) return;
-  // drawn at a quarter of the map's size and scaled up: it's a soft layer, and this keeps it fast
-  const sc = 0.25, key = bg.w + 'x' + bg.h + ':' + pxPerM();
-  if (!D.heat || D.heat.key !== key){
-    const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bg.w*sc)); c.height = Math.max(1, Math.ceil(bg.h*sc));
-    const h = c.getContext('2d'), r = Math.max(3, D.R * 0.7 * pxPerM() * sc);
-    const blob = document.createElement('canvas'), bs = Math.ceil(r*2); blob.width = blob.height = bs;
-    const bx = blob.getContext('2d'), gr = bx.createRadialGradient(bs/2, bs/2, 0, bs/2, bs/2, bs/2);
-    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); bx.fillStyle = gr; bx.fillRect(0, 0, bs, bs);
-    for (const b of D.pts){ const p = W2I(b[1], b[2]); h.globalAlpha = Math.min(1, 0.04 + Math.sqrt(b[3]) * 0.025); h.drawImage(blob, p.x*sc - bs/2, p.y*sc - bs/2); }
-    const id = h.getImageData(0, 0, c.width, c.height), d = id.data;
-    for (let i = 0; i < d.length; i += 4){
-      const a = d[i + 3] / 255; if (!a) continue;
-      const t = Math.min(1, a * 1.5); // light amber where few people are left out, deep red where many are
-      d[i] = 244 - 34*t; d[i + 1] = 190 - 150*t; d[i + 2] = 60 - 30*t; d[i + 3] = Math.round(255 * Math.min(0.6, 0.12 + t*0.6));
-    }
-    h.putImageData(id, 0, 0);
-    D.heat = {key, c};
-  }
-  g.save(); g.imageSmoothingEnabled = true; g.drawImage(D.heat.c, 0, 0, bg.w, bg.h); g.restore();
-}
-function drawGapSpots(g, u){
-  const D = gapData(), k = pxPerM();
-  D.spots.forEach((s, n) => {
-    const p = W2I(s.x, s.y);
-    g.beginPath(); g.arc(p.x, p.y, s.r*k, 0, Math.PI*2); g.setLineDash([6*u, 4*u]); g.lineWidth = 1.6*u; g.strokeStyle = 'rgba(43,36,25,0.6)'; g.stroke(); g.setLineDash([]);
-    g.beginPath(); g.arc(p.x, p.y, 12*u, 0, Math.PI*2); g.fillStyle = COV.accent; g.fill(); g.lineWidth = 2*u; g.strokeStyle = STATION_INK; g.stroke();
-    g.fillStyle = STATION_INK; g.font = `800 ${12*u}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n + 1), p.x, p.y + 0.5*u);
-    const lbl = '+' + s.total.toLocaleString(LOCALE());
-    g.font = `700 ${11.5*u}px ${getComputedStyle(document.body).fontFamily}`; const w = g.measureText(lbl).width + 12*u;
-    g.beginPath(); g.roundRect(p.x + 14*u, p.y - 9*u, w, 18*u, 9*u); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill(); g.lineWidth = u; g.strokeStyle = 'rgba(0,0,0,0.2)'; g.stroke();
-    g.fillStyle = STATION_INK; g.textAlign = 'left'; g.fillText(lbl, p.x + 20*u, p.y + 0.5*u);
-  });
-}
+function drawGapHeat(g){ drawHeatLayer(g, gapData(), it => Math.min(1, 0.04 + Math.sqrt(it.w) * 0.025)); }
+function drawGapSpots(g, u){ drawSpotMarks(g, u, gapData().spots, s => '+' + s.total.toLocaleString(LOCALE())); }
 function addSpotStop(s){
   commit();
   const at = W2I(s.x, s.y), id = addNode(at.x, at.y);
@@ -4107,10 +4048,9 @@ $('#startOver').addEventListener('click', e => {
   loadExample(); S.nodes = {}; S.lines = []; S.stations = {}; fit(); ui(); draw(); toast('Started over with a blank map');
 });
 $('#cView').addEventListener('change', e => { S.settings.cargoView = e.target.value; autosave(); ui(); draw(); });
-$('#cInd').addEventListener('change', e => { S.settings.cargoInd = e.target.checked; autosave(); draw(); });
+$('#cInd').addEventListener('change', e => { S.settings.cargoInd = e.target.checked; autosave(); ui(); draw(); });
 $('#cBiz').addEventListener('change', e => { S.settings.cargoBiz = e.target.checked; autosave(); ui(); draw(); });
 $('#cTind').addEventListener('change', e => { S.settings.cargoTind = e.target.checked; autosave(); ui(); draw(); });
-$('#cInd').addEventListener('change', () => ui());
 $('#cGood').addEventListener('change', e => { S.settings.cargoGood = e.target.value; autosave(); ui(); draw(); });
 $('#indClose').addEventListener('click', () => { sel_ind = null; ui(); draw(); });
 $('#gReach').addEventListener('change', e => { S.settings.reach = e.target.value; autosave(); ui(); draw(); });
