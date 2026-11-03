@@ -25,6 +25,7 @@ local function stockInfo(sl)
 end
 P("TFO|BEGIN|1|console")
 local sgs,sgList={},{}
+local slOwner={} -- stock list entity -> the town building or industry it belongs to (cargo items name the stock list)
 local ok,err=pcall(function()
   for _,l in ipairs(arr(S.lineSystem.getLines())) do
     local ln=g(l,C.LINE) local nm=g(l,C.NAME) local co=g(l,C.COLOR)
@@ -80,7 +81,7 @@ ok,err=pcall(function()
         local pce=(tbc and tbc.personCapacity) or b
         local pc=(pce and pce>=0) and g(pce,C.PERSON_CAPACITY) or nil
         rows[#rows+1]=b..","..f1(x)..","..f1(y)..","..((pc and pc.capacity) or 0)..","..((pc and pc.type) or -1)..","..town..","..pce
-        if tbc and tbc.stockList and tbc.stockList>=0 then local oks,si=pcall(stockInfo,tbc.stockList) if oks and si then P("TFO|S|"..b.."|"..si) end end
+        if tbc and tbc.stockList and tbc.stockList>=0 then slOwner[tbc.stockList]=b local oks,si=pcall(stockInfo,tbc.stockList) if oks and si then P("TFO|S|"..b.."|"..si) end end
       end
     end
   end
@@ -93,6 +94,7 @@ ok,err=pcall(function()
       if not x and ind and ind.construction then x,y=center(ind.construction) end
       if not x then return end
       local nm=g(e,C.NAME) if (not nm) and ind and ind.construction then nm=g(ind.construction,C.NAME) end
+      if ind and ind.stockList and ind.stockList>=0 then slOwner[ind.stockList]=e end
       local si=stockInfo((ind and ind.stockList) or e) or "||"
       P("TFO|I|"..e.."|"..f1(x)..","..f1(y).."|"..((ind and ind.level) or 0).."|"..esc(nm and nm.name).."|"..si)
     end)
