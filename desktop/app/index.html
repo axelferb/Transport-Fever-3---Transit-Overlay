@@ -2630,6 +2630,35 @@ function catTotals(){
 }
 /* Road and track network: each edge is [id, node0, node1, x0, y0, x1, y1, t0x, t0y, t1x, t1y, kind(0 street, 1 track)]. */
 let graphCache = null;
+/* Road class per street edge, 0..3 (lane, street, avenue, highway), from the exported roadway width (e[12]).
+   TF3 reports the width per block, and a block with a bus bay or station lanes comes out much wider than the
+   street it belongs to, so each edge takes the median of itself and its two collinear continuations (two passes).
+   Exports without widths (before mod revision 5) are all class 1. Cached on the game object. */
+function roadClasses(G){
+  if (G.rc && G.rc.for === G.edges) return G.rc.c;
+  const E = G.edges, cls = e => { const w = e[12]; return !(w > 0) ? 1 : w <= 6.5 ? 0 : w <= 12.5 ? 1 : w <= 22.5 ? 2 : 3; };
+  const byNode = new Map();
+  E.forEach((e, i) => { if (e[11] !== 0) return; for (const n of [e[1], e[2]]){ if (!byNode.has(n)) byNode.set(n, []); byNode.get(n).push(i); } });
+  const dir = (e, n) => { const dx = e[5] - e[3], dy = e[6] - e[4], L = Math.hypot(dx, dy) || 1; return e[1] === n ? [dx/L, dy/L] : [-dx/L, -dy/L]; };
+  // the continuation of edge i through node n: the other street edge leaving n most nearly straight on (within ~60°)
+  const cont = (i, n) => { const d = dir(E[i], n); let best = -1, bd = 0.5; for (const j of byNode.get(n) || []){ if (j === i) continue; const d2 = dir(E[j], n), dot = -(d[0]*d2[0] + d[1]*d2[1]); if (dot > bd){ bd = dot; best = j; } } return best; };
+  // walk the street from edge i through node n: the next edge and the node after it
+  const step = (i, n) => { const j = cont(i, n); return j < 0 ? null : [j, E[j][1] === n ? E[j][2] : E[j][1]]; };
+  let c = E.map(cls);
+  for (let pass = 0; pass < 3; pass++){
+    const nc = c.slice();
+    E.forEach((e, i) => {
+      if (e[11] !== 0) return;
+      const win = [c[i]];
+      for (const n0 of [e[1], e[2]]){ let s = step(i, n0); if (!s) continue; win.push(c[s[0]]); s = step(s[0], s[1]); if (s) win.push(c[s[0]]); }
+      if (win.length < 3) return;
+      win.sort((x, y) => x - y); nc[i] = win[(win.length - 1) >> 1];
+    });
+    c = nc;
+  }
+  G.rc = {for:E, c};
+  return c;
+}
 function edgeInterior(e){
   const x0 = e[3], y0 = e[4], x1 = e[5], y1 = e[6], t0x = e[7], t0y = e[8], t1x = e[9], t1y = e[10];
   const cx = x1 - x0, cy = y1 - y0, L = Math.hypot(cx, cy), l0 = Math.hypot(t0x, t0y), l1 = Math.hypot(t1x, t1y);
@@ -2732,16 +2761,18 @@ function makeGameMap(){
   const strokeEdges = (kind, color, w, dash, pick) => {
     g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash(dash || []);
     g.beginPath();
-    for (const e of S.game.edges){ if (e[11] !== kind || (pick && !pick(e))) continue; const pts = segs(e); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); }
+    S.game.edges.forEach((e, i) => { if (e[11] !== kind || (pick && !pick(e, i))) return; const pts = segs(e); g.moveTo(pts[0].x, pts[0].y); for (let j = 1; j < pts.length; j++) g.lineTo(pts[j].x, pts[j].y); });
     g.stroke(); g.setLineDash([]);
   };
   if (S.game.edges && S.game.edges.length){
-    // Streets at their real width (roadway, with the sidewalks as the casing), so a lane feels narrow and an avenue wide.
-    // Exports from before mod revision 5 carry no width (0): those get the old fixed 9 m / 13 m look.
-    const roadW = e => e[12] > 0 ? e[12] : 9, caseW = e => e[13] > 0 ? e[13] : 13;
-    const widths = [...new Set(S.game.edges.filter(e => e[11] === 0).map(e => roadW(e) + '|' + caseW(e)))].map(k => k.split('|').map(Number)).sort((a, b) => a[0] - b[0]);
-    for (const [rw, cw] of widths) strokeEdges(0, '#D3CCBF', Math.max(2, s*Math.max(cw, rw + 4)), null, e => roadW(e) === rw && caseW(e) === cw);
-    for (const [rw, cw] of widths) strokeEdges(0, '#FBFAF7', Math.max(1.2, s*Math.max(rw, 4)), null, e => roadW(e) === rw && caseW(e) === cw);
+    // Streets by class (lane, street, avenue, highway) from the exported roadway width, smoothed along the street
+    // so one block with a bus bay doesn't bulge. Each class has a width in metres: [roadway, roadway + sidewalks].
+    // Bigger roads get a warm fill as well as width, like a printed road atlas.
+    const rc = roadClasses(S.game), RW = [[6, 10], [10, 14], [16, 22], [24, 32]];
+    const CASE = ['#D8D2C6', '#D3CCBF', '#C9B384', '#C19A5E'], FILL = ['#FBFAF7', '#FBFAF7', '#F8EBB8', '#F3D28A'];
+    const pick = k => (e, i) => rc[i] === k;
+    for (let k = 0; k < 4; k++) strokeEdges(0, CASE[k], Math.max(2, s*RW[k][1]), null, pick(k));
+    for (let k = 0; k < 4; k++) strokeEdges(0, FILL[k], Math.max(1.2, s*RW[k][0]), null, pick(k));
     strokeEdges(1, '#8F8A83', Math.max(1.2, s*4));
     strokeEdges(1, '#ECE9E2', Math.max(0.8, s*2.2), [Math.max(3, s*14), Math.max(3, s*14)]);
   }
