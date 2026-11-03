@@ -561,6 +561,44 @@ function prefSet(ents){
   const set = new Set(); for (const e of ents){ const i = eidxMap.get(e); if (i != null) set.add(i); }
   return set;
 }
+/* The route the line's vehicles were actually driving when the export ran, as the game recorded it:
+   every leg's edges in order, drawn as a thin bright thread with arrows over the selected line. Where the
+   thread stops, the line on the map is an estimate (shortest road) until the next recorded leg. */
+function vehiclePathPts(l){
+  const gl = S.game && S.game.lines.find(x => x.id === l.gameId), L = gl && S.game.legs && S.game.legs[gl.id];
+  if (!L) return [];
+  const out = [];
+  for (const j of Object.keys(L).map(Number).sort((a, b) => a - b)){
+    const ch = orientChain(S.game, L[j]); if (!ch) continue;
+    const pts = [];
+    ch.list.forEach((ei, i) => { const seq = edgePolyW(ei); for (const q of (ch.orient[i] ? seq : seq.slice().reverse())) pts.push(W2I(q.x, q.y)); });
+    if (pts.length > 1) out.push(pts);
+  }
+  return out;
+}
+function drawVehiclePath(g, l, u, z){
+  const legs = vehiclePathPts(l); if (!legs.length) return;
+  g.save(); g.setLineDash([]); g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const pts of legs){
+    g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 4.5/z; poly(g, pts); g.stroke();
+    g.strokeStyle = '#1E6B8C'; g.lineWidth = 2.2/z; poly(g, pts); g.stroke();
+    // arrows every ~90 px of screen along the thread
+    let acc = 0; const step = 90/z;
+    for (let i = 1; i < pts.length; i++){
+      const a = pts[i - 1], b = pts[i], d = Math.hypot(b.x - a.x, b.y - a.y); if (!d) continue;
+      while (acc + d >= step){ const t = (step - acc) / d, x = a.x + (b.x - a.x)*t, y = a.y + (b.y - a.y)*t; chevron(g, x, y, (b.x - a.x)/d, (b.y - a.y)/d, 5/z, '#1E6B8C', u); acc -= step; }
+      acc += d;
+    }
+  }
+  g.restore();
+}
+/* "{a} of {b} stretches recorded" for the selected game line, or null when nothing was recorded. */
+function vehiclePathInfo(l){
+  const gl = S.game && S.game.lines.find(x => x.id === l.gameId); if (!gl) return null;
+  const n = gl.stops.length, legs = (n > 1 && gl.stops[0] !== gl.stops[n - 1]) ? n : n - 1;
+  const L = S.game.legs && S.game.legs[gl.id], a = L ? Object.keys(L).length : 0;
+  return {a, b:legs};
+}
 function chainNodes(ents){
   const ch = orientChain(S.game, ents); if (!ch) return [];
   const out = [];

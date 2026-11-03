@@ -254,6 +254,7 @@ function renderScene(g, screen){
   if (activeTab === 'cargo'){ drawCargoRadii(g, u); if (S.game && S.game.xf && S.game.industries && S.settings.cargoHeat !== false && (S.settings.cargoView || 'problems') !== 'off') drawCargoGapHeat(g); drawCargo(g, u); }
   const G = computeGeometry();
   drawNetwork(g, G, u, screen);
+  if (screen && sel.line != null && S.game && S.settings.vehiclePath !== false){ const l = lineById(sel.line); if (l && l.gameId) drawVehiclePath(g, l, u, view.z); }
   if (showCov && S.game && S.game.xf && S.settings.coverage !== 'off' && S.settings.gapSpots !== false) drawGapSpots(g, u);
   if (activeTab === 'cargo' && S.game && S.game.xf && S.game.industries && (S.settings.cargoView || 'problems') !== 'off' && S.settings.cargoSpots !== false) drawCargoGapSpots(g, u);
   return G;

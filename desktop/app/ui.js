@@ -86,6 +86,11 @@ function ui(){
     document.querySelectorAll('#lnSwatches button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toLowerCase() === String(l.color).toLowerCase())));
     $('#lnCont').textContent = T(l.id === activeLine ? 'Stop drawing' : 'Draw branch');
     $('#lnStats').textContent = lineStatsText(l);
+    { const vi = l.gameId && S.game ? vehiclePathInfo(l) : null;
+      $('#lnPathRow').hidden = !vi; $('#lnPathInfo').hidden = !vi;
+      if (vi){ $('#lnPath').checked = S.settings.vehiclePath !== false;
+        $('#lnPathInfo').textContent = vi.a ? T('{a} of {b} stretches were recorded from vehicles in the game; the rest of the line is the shortest road between stops.', {a:vi.a, b:vi.b}) : T('No vehicle on this line had reported its route when you exported. Export again while they are driving.'); }
+    }
     const r = selRun();
     $('#brBox').hidden = !r;
     if (r){
@@ -185,6 +190,7 @@ $('#zFit').addEventListener('click', fit);
 const curLine = () => sel.line != null ? lineById(sel.line) : null;
 $('#lnName').addEventListener('input', e => { const l = curLine(); if (!l) return; liveEdit(); l.name = e.target.value; ui(); draw(); });
 $('#lnName').addEventListener('change', settle);
+$('#lnPath').addEventListener('change', e => { S.settings.vehiclePath = e.target.checked; autosave(); draw(); });
 $('#lnColor').addEventListener('input', e => { const l = curLine(); if (!l) return; liveEdit(); l.color = e.target.value; ui(); draw(); });
 $('#lnColor').addEventListener('change', settle);
 $('#lnMode').addEventListener('change', e => { const l = curLine(); if (!l) return; commit(); l.mode = e.target.value; ui(); draw(); });
