@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.11.0
+- Game map: streets are drawn at their real width, so a narrow lane and a wide avenue now look different. Needs mod revision 5 (restart the game so mod.io updates it) or a freshly copied console command, then re-import.
+
 ## 2.10.0
 - New look: warmer colours, bigger controls, cards in the side panel, and a legend on the map.
 - Theme setting: light, dark, or follow the system (⚙ Settings → Map display).

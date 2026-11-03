@@ -34,7 +34,7 @@ function export.run()
 	end
 	-- "mod:<revision>" tells the desktop app which mod made this export, so it can warn when the
 	-- mod and the app are out of step. Keep it equal to "revision" in mod.json.
-	P("TFO|BEGIN|1|mod:4")
+	P("TFO|BEGIN|1|mod:5")
 	local sgs,sgList={},{}
 	local ok,err=pcall(function()
 	  for _,l in ipairs(arr(S.lineSystem.getLines())) do
@@ -128,8 +128,15 @@ function export.run()
 	    end
 	  end
 	end) if not ok then P("TFO|ERR|routes|"..esc(err)) end
-	local epos,eseen,erows,eerr={}, {}, {}, false
+	local epos,eseen,erows,eerr,stw={}, {}, {}, false, {}
 	local function enp(n) local p=epos[n] if p==nil then local bn=g(n,C.BASE_NODE) p=(bn and bn.position) or false epos[n]=p if p then bbx(p.x,p.y) end end return p end
+	-- Street width in metres: "<roadway>,<roadway plus both sidewalks>", read once per street type; "0,0" when unknown (tracks).
+	local function swidth(e)
+	  local okS,bs=pcall(g,e,C.BASE_EDGE_STREET) if not okS or not bs or not bs.streetType then return "0,0" end
+	  local st=bs.streetType local c=stw[st]
+	  if c==nil then c=false pcall(function() local r=api.res.streetTypeRep.get(st) local sw=tonumber(r.streetWidth) or 0 if sw<=0 then for _,lc in ipairs(arr(r.laneConfigs)) do sw=sw+(tonumber(lc.width) or 0) end end if sw>0 then c=f1(sw)..","..f1(sw+2*(tonumber(r.sidewalkWidth) or 0)) end end) stw[st]=c end
+	  return c or "0,0"
+	end
 	local function escan(kind,getmap)
 	  local ok2,err2=pcall(function()
 	    for _,edges in pairs(getmap()) do
@@ -141,7 +148,7 @@ function export.run()
 	              local p0,p1=enp(be.node0),enp(be.node1)
 	              if p0 and p1 then
 	                local t0,t1=be.tangent0,be.tangent1
-	                erows[#erows+1]=e..","..be.node0..","..be.node1..","..f1(p0.x)..","..f1(p0.y)..","..f1(p1.x)..","..f1(p1.y)..","..(t0 and (f1(t0.x)..","..f1(t0.y)) or "0,0")..","..(t1 and (f1(t1.x)..","..f1(t1.y)) or "0,0")..","..kind
+	                erows[#erows+1]=e..","..be.node0..","..be.node1..","..f1(p0.x)..","..f1(p0.y)..","..f1(p1.x)..","..f1(p1.y)..","..(t0 and (f1(t0.x)..","..f1(t0.y)) or "0,0")..","..(t1 and (f1(t1.x)..","..f1(t1.y)) or "0,0")..","..kind..","..(kind=="s" and swidth(e) or "0,0")
 	              end
 	            end
 	          end)
