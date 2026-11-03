@@ -231,6 +231,19 @@
       <div class="field"><label for="setFade">Fade map</label><input type="range" id="setFade" min="0" max="0.8" step="0.05"></div>
       <div class="field"><label for="setSize">Line size</label><input type="range" id="setSize" min="0.4" max="2.5" step="0.05"></div>
       <label class="check"><input type="checkbox" id="setGray"> Grey out the screenshot</label>
+      <div class="field" id="mapStyleRow" hidden><span id="mapStyleLabel">Map look</span>
+        <div class="seg" role="group" aria-labelledby="mapStyleLabel" id="setMapStyle">
+          <button type="button" data-style="atlas" aria-pressed="false">Atlas</button>
+          <button type="button" data-style="plan" aria-pressed="false">Plan</button>
+          <button type="button" data-style="ink" aria-pressed="false">Ink</button>
+        </div></div>
+      <div class="field" id="heatStyleRow"><span id="heatStyleLabel">Heatmaps</span>
+        <div class="seg wrap" role="group" aria-labelledby="heatStyleLabel" id="setHeatStyle">
+          <button type="button" data-style="ember" aria-pressed="false">Ember</button>
+          <button type="button" data-style="field" aria-pressed="false">Field guide</button>
+          <button type="button" data-style="bands" aria-pressed="false">Bands</button>
+          <button type="button" data-style="sea" aria-pressed="false">Sea</button>
+        </div></div>
       <div id="terrainOpts" hidden>
         <label class="check"><input type="checkbox" id="setTerrain"> Show terrain and water</label>
         <div class="field"><label for="setWater">Water level (m)</label><input type="number" id="setWater" step="0.5" style="width:90px"></div>

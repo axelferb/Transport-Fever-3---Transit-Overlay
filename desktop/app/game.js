@@ -304,6 +304,76 @@ function gameBounds(){
   if (!isFinite(x0)) return {x0:-1000, y0:-1000, x1:1000, y1:1000};
   return {x0, y0, x1, y1};
 }
+/* Looks for the game map. Streets have a width in metres per class [roadway, with sidewalks]; the type
+   (town, country, highway) picks the colours. Chosen in Settings; the live map and the export share it. */
+const MAP_STYLES = {
+  atlas: {label:'Atlas', paper:'#ECE9E2', grid:'rgba(60,50,40,0.07)',
+    CASE:[['#D8D2C6', '#D3CCBF', '#C9B384', '#C19A5E'], ['#C4BFB3', '#B8B2A6', '#B5A074', '#A88950'], ['#B07F3C', '#B07F3C', '#B07F3C', '#B07F3C']],
+    FILL:[['#FBFAF7', '#FBFAF7', '#F8EBB8', '#F3D28A'], ['#FBFAF7', '#FBFAF7', '#F8EBB8', '#F3D28A'], ['#F4C07A', '#F4C07A', '#F4C07A', '#F4C07A']],
+    track:['#8F8A83', '#ECE9E2'], bld:['#C9B396', '#A9B7CB', '#BBB0C7'], bldEdge:null, label:'#7A7468', labelHalo:'rgba(236,233,226,0.9)'},
+  plan: {label:'Plan', paper:'#F4F1EA', grid:'rgba(60,50,40,0.05)',
+    CASE:[['#C9C3B6', '#C9C3B6', '#B9B2A3', '#A79E8C'], ['#BDB7AA', '#BDB7AA', '#ADA596', '#9B9280'], ['#9B9280', '#9B9280', '#9B9280', '#9B9280']],
+    FILL:[['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], ['#F6EFDD', '#F6EFDD', '#F6EFDD', '#F6EFDD']],
+    track:['#8A857D', '#F4F1EA'], bld:['rgba(140,123,90,0.10)', 'rgba(70,95,130,0.10)', 'rgba(110,85,140,0.10)'], bldEdge:['#A8957A', '#8A9BB5', '#A594B8'], label:'#8A8378', labelHalo:'rgba(244,241,234,0.9)'},
+  ink: {label:'Ink', paper:'#E8E4DA', grid:'rgba(60,50,40,0.06)',
+    CASE:[[null, null, null, null], [null, null, null, null], [null, null, null, null]],
+    FILL:[['#B9B2A5', '#A79F91', '#8E8678', '#6F6759'], ['#A79F91', '#9D9587', '#857D6F', '#6F6759'], ['#5C5447', '#5C5447', '#5C5447', '#5C5447']],
+    track:['#4A443B', '#E8E4DA'], bld:['#CDBFA4', '#AEBBCB', '#C0B4CA'], bldEdge:null, label:'#5C5447', labelHalo:'rgba(232,228,218,0.9)'},
+};
+const mapStyle = () => MAP_STYLES[S.settings.mapStyle] || MAP_STYLES.atlas;
+/* Kept outside S.game so it never ends up in a saved project: the base bitmap and the edge polylines. */
+let gameMapCache = {game:null, base:null, segC:null};
+/* Roads, tracks, buildings and town names in image coordinates, at s image px per metre. z is the screen
+   zoom the result is seen at (1 for the export bitmap): widths never go under a couple of screen pixels, and
+   town names keep a readable size. clip is the visible image rect; what lies outside it is skipped. */
+function drawMapContent(g, s, z, clip){
+  const ST = mapStyle(), W = bg.w;
+  const vis = clip ? (x0, y0, x1, y1) => x1 >= clip.x0 && x0 <= clip.x1 && y1 >= clip.y0 && y0 <= clip.y1 : () => true;
+  const segs = (e) => { const a = W2I(e[3], e[4]), b = W2I(e[5], e[6]); return [a, ...edgeInterior(e).map(q => W2I(q.x, q.y)), b]; };
+  const segC = gameMapCache.segC && gameMapCache.segC.for === S.game.edges ? gameMapCache.segC : (gameMapCache.segC = {for:S.game.edges, pts:S.game.edges.map(segs), box:S.game.edges.map(e => {
+    const pts = segs(e); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of pts){ x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); } return [x0, y0, x1, y1]; })});
+  const m = 40/z; // margin for wide roads at the edge of the view
+  const strokeEdges = (kind, color, w, dash, pick) => {
+    if (!color) return;
+    g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash(dash || []);
+    g.beginPath();
+    S.game.edges.forEach((e, i) => { if (e[11] !== kind || (pick && !pick(e, i))) return; const bx = segC.box[i]; if (!vis(bx[0] - m, bx[1] - m, bx[2] + m, bx[3] + m)) return;
+      const pts = segC.pts[i]; g.moveTo(pts[0].x, pts[0].y); for (let j = 1; j < pts.length; j++) g.lineTo(pts[j].x, pts[j].y); });
+    g.stroke(); g.setLineDash([]);
+  };
+  if (S.game.edges && S.game.edges.length){
+    const {c:rc, t:rt} = roadClasses(S.game), RW = [[6, 10], [10, 14], [16, 22], [24, 32]];
+    const pick = (k, t) => (e, i) => rc[i] === k && rt[i] === t;
+    for (let t = 0; t < 3; t++) for (let k = 0; k < 4; k++) strokeEdges(0, ST.CASE[t][k], Math.max(2/z, s*RW[k][1]), null, pick(k, t));
+    for (let t = 0; t < 3; t++) for (let k = 0; k < 4; k++) strokeEdges(0, ST.FILL[t][k], Math.max(1.2/z, s*RW[k][0]), null, pick(k, t));
+    strokeEdges(1, ST.track[0], Math.max(1.2/z, s*4));
+    strokeEdges(1, ST.track[1], Math.max(0.8/z, s*2.2), [Math.max(3/z, s*14), Math.max(3/z, s*14)]);
+  }
+  const tc = {};
+  g.lineWidth = Math.max(0.6/z, s*0.8);
+  for (const b of S.game.buildings){
+    const p = W2I(b[1], b[2]);
+    const sz = Math.max(2/z, s * (9 + Math.sqrt(Math.max(1, b[3])) * 4));
+    const t = tc[b[5]] || (tc[b[5]] = {x:0, y:0, n:0}); t.x += p.x; t.y += p.y; t.n++;
+    if (!vis(p.x - sz, p.y - sz, p.x + sz, p.y + sz)) continue;
+    g.fillStyle = ST.bld[b[4]] || '#C4C0B8'; g.fillRect(p.x - sz/2, p.y - sz/2, sz, sz);
+    if (ST.bldEdge){ g.strokeStyle = ST.bldEdge[b[4]] || '#A8957A'; g.strokeRect(p.x - sz/2, p.y - sz/2, sz, sz); }
+  }
+  const fs = Math.min(Math.round(W/110), 18/z);
+  g.font = `italic 700 ${fs}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (g.letterSpacing !== undefined) g.letterSpacing = (fs*0.12) + 'px';
+  for (const k in tc){
+    const t = tc[k], name = (S.game.towns[k] || '').toUpperCase(); if (!name || t.n < 3) continue;
+    const x = t.x / t.n, y = t.y / t.n;
+    if (!vis(x - fs*name.length, y - fs, x + fs*name.length, y + fs)) continue;
+    g.lineWidth = fs*0.4; g.strokeStyle = ST.labelHalo; g.strokeText(name, x, y);
+    g.fillStyle = ST.label; g.fillText(name, x, y);
+  }
+  if (g.letterSpacing !== undefined) g.letterSpacing = '0px';
+}
+/* The game map as a bitmap: paper, terrain and the 1 km grid go in a base canvas (gameMapCache.base) that the
+   live map draws the roads and buildings over at the current zoom; the full bitmap is what the export uses. */
 function makeGameMap(){
   const bb = gameBounds(), m = bb.focus ? 0 : 400;
   // Rotation: image = s·e^{iθ}·(X − iY) + b. Size the canvas to the rotated extent.
@@ -317,52 +387,21 @@ function makeGameMap(){
   const W = Math.max(200, Math.round((rx1 - rx0 + 2*m) * s));
   const H = Math.max(200, Math.round((ry1 - ry0 + 2*m) * s));
   S.game.xf = {a:[s*rot[0], s*rot[1]], b:[s*(m - rx0), s*(m - ry0)], mirror:false, kind:'map'};
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  g.fillStyle = '#ECE9E2'; g.fillRect(0, 0, W, H);
+  gameMapCache = {game:S.game, base:null, segC:null};
+  const ST = mapStyle();
+  const base = document.createElement('canvas'); base.width = W; base.height = H;
+  const g = base.getContext('2d');
+  g.fillStyle = ST.paper; g.fillRect(0, 0, W, H);
   drawTerrain(g);
-  g.strokeStyle = 'rgba(60,50,40,0.07)'; g.lineWidth = 1.5;
+  g.strokeStyle = ST.grid; g.lineWidth = 1.5;
   const span = Math.hypot(bb.x1 - bb.x0, bb.y1 - bb.y0) + 2*m + 2000, cxw = (bb.x0 + bb.x1)/2, cyw = (bb.y0 + bb.y1)/2;
   for (let k = Math.ceil((cxw - span)/1000)*1000; k < cxw + span; k += 1000){ const a = W2I(k, cyw - span), b = W2I(k, cyw + span); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
   for (let k = Math.ceil((cyw - span)/1000)*1000; k < cyw + span; k += 1000){ const a = W2I(cxw - span, k), b = W2I(cxw + span, k); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
-  const segs = (e) => { const a = W2I(e[3], e[4]), b = W2I(e[5], e[6]); return [a, ...edgeInterior(e).map(q => W2I(q.x, q.y)), b]; };
-  const strokeEdges = (kind, color, w, dash, pick) => {
-    g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash(dash || []);
-    g.beginPath();
-    S.game.edges.forEach((e, i) => { if (e[11] !== kind || (pick && !pick(e, i))) return; const pts = segs(e); g.moveTo(pts[0].x, pts[0].y); for (let j = 1; j < pts.length; j++) g.lineTo(pts[j].x, pts[j].y); });
-    g.stroke(); g.setLineDash([]);
-  };
-  if (S.game.edges && S.game.edges.length){
-    // Streets by class (lane, street, avenue, highway) from the exported roadway width, smoothed along the street
-    // so one block with a bus bay doesn't bulge. Each class has a width in metres: [roadway, roadway + sidewalks].
-    // Bigger roads get a warm fill as well as width, like a printed road atlas; the type sets the colours.
-    const {c:rc, t:rt} = roadClasses(S.game), RW = [[6, 10], [10, 14], [16, 22], [24, 32]];
-    const CASE = [['#D8D2C6', '#D3CCBF', '#C9B384', '#C19A5E'],   // town: tan casing, white fill, avenues yellow
-                  ['#C4BFB3', '#B8B2A6', '#B5A074', '#A88950'],   // country: darker grey casing, same fills
-                  ['#B07F3C', '#B07F3C', '#B07F3C', '#B07F3C']];  // highway: brown casing, orange fill
-    const FILL = [['#FBFAF7', '#FBFAF7', '#F8EBB8', '#F3D28A'], ['#FBFAF7', '#FBFAF7', '#F8EBB8', '#F3D28A'], ['#F4C07A', '#F4C07A', '#F4C07A', '#F4C07A']];
-    const pick = (k, t) => (e, i) => rc[i] === k && rt[i] === t;
-    for (let t = 0; t < 3; t++) for (let k = 0; k < 4; k++) strokeEdges(0, CASE[t][k], Math.max(2, s*RW[k][1]), null, pick(k, t));
-    for (let t = 0; t < 3; t++) for (let k = 0; k < 4; k++) strokeEdges(0, FILL[t][k], Math.max(1.2, s*RW[k][0]), null, pick(k, t));
-    strokeEdges(1, '#8F8A83', Math.max(1.2, s*4));
-    strokeEdges(1, '#ECE9E2', Math.max(0.8, s*2.2), [Math.max(3, s*14), Math.max(3, s*14)]);
-  }
-  const col = ['#C9B396', '#A9B7CB', '#BBB0C7'];
-  const tc = {};
-  for (const b of S.game.buildings){
-    const p = W2I(b[1], b[2]);
-    const sz = Math.max(2, s * (9 + Math.sqrt(Math.max(1, b[3])) * 4));
-    g.fillStyle = col[b[4]] || '#C4C0B8'; g.fillRect(p.x - sz/2, p.y - sz/2, sz, sz);
-    const t = tc[b[5]] || (tc[b[5]] = {x:0, y:0, n:0}); t.x += p.x; t.y += p.y; t.n++;
-  }
-  g.font = `italic 700 ${Math.round(W/110)}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  if (g.letterSpacing !== undefined) g.letterSpacing = '3px';
-  for (const k in tc){
-    const t = tc[k], name = (S.game.towns[k] || '').toUpperCase(); if (!name || t.n < 3) continue;
-    const x = t.x / t.n, y = t.y / t.n;
-    g.lineWidth = 6; g.strokeStyle = 'rgba(236,233,226,0.9)'; g.strokeText(name, x, y);
-    g.fillStyle = '#7A7468'; g.fillText(name, x, y);
-  }
+  gameMapCache.base = base;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g2 = c.getContext('2d'); g2.drawImage(base, 0, 0);
+  const savedBg = bg; bg = {...bg, w:W, h:H}; // drawMapContent reads the map size from bg
+  try { drawMapContent(g2, s, 1, null); } finally { bg = savedBg; }
   return c;
 }
 function waterLevel(){ const T = S.game && S.game.terrain; const v = S.settings.waterLevel; return v != null && v !== '' && !isNaN(+v) ? +v : (T && T.wl != null ? T.wl : 0); }
@@ -1032,9 +1071,18 @@ function cargoGapData(){
   }).sort((a, b) => b.total - a.total || b.weight - a.weight);
   return cgapCache = {sig, pts:items, wmax, spots, R, heat:null};
 }
+/* Looks for the heatmaps (gaps, unmet cargo demand). Each maps t (0 faint .. 1 strong) to a colour and
+   alpha; "bands" quantises t into steps so the layer reads like contour bands. Chosen in Settings. */
+const HEAT_STYLES = {
+  ember: {label:'Ember', bands:0, at:t => [244 - 34*t, 190 - 150*t, 60 - 30*t, Math.min(0.6, 0.12 + t*0.6)]},   // amber to deep red
+  field: {label:'Field guide', bands:0, at:t => [242 - 25*t, 169 - 86*t, 0 + 43*t, Math.min(0.55, 0.10 + t*0.55)]}, // the app's amber to terracotta
+  bands: {label:'Bands', bands:4, at:t => [242 - 25*t, 169 - 86*t, 0 + 43*t, 0.06 + t*0.42]},                  // same colours, four flat steps
+  sea:   {label:'Sea', bands:0, at:t => [140 - 110*t, 203 - 96*t, 224 - 84*t, Math.min(0.55, 0.10 + t*0.55)]},   // cool teal: the red gap dots stand out on it
+};
+const heatStyle = () => HEAT_STYLES[S.settings.heatStyle] || HEAT_STYLES.ember;
 function drawHeatLayer(g, D, alphaOf){
   if (!D.pts.length) return;
-  const sc = 0.25, key = bg.w + 'x' + bg.h + ':' + pxPerM();
+  const HS = heatStyle(), sc = 0.25, key = bg.w + 'x' + bg.h + ':' + pxPerM() + ':' + (S.settings.heatStyle || '');
   if (!D.heat || D.heat.key !== key){
     const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bg.w*sc)); c.height = Math.max(1, Math.ceil(bg.h*sc));
     const h = c.getContext('2d'), r = Math.max(3, D.R * 0.7 * pxPerM() * sc);
@@ -1045,8 +1093,10 @@ function drawHeatLayer(g, D, alphaOf){
     const id = h.getImageData(0, 0, c.width, c.height), d = id.data;
     for (let i = 0; i < d.length; i += 4){
       const a = d[i + 3] / 255; if (!a) continue;
-      const t = Math.min(1, a * 1.5);
-      d[i] = 244 - 34*t; d[i + 1] = 190 - 150*t; d[i + 2] = 60 - 30*t; d[i + 3] = Math.round(255 * Math.min(0.6, 0.12 + t*0.6));
+      let t = Math.min(1, a * 1.5);
+      if (HS.bands){ t = Math.ceil(t * HS.bands) / HS.bands; }
+      const [R, G, B, A] = HS.at(t);
+      d[i] = R; d[i + 1] = G; d[i + 2] = B; d[i + 3] = Math.round(255 * A);
     }
     h.putImageData(id, 0, 0);
     D.heat = {key, c};
@@ -1148,7 +1198,7 @@ function gameUI(){
     const idle = idleStops();
     let note = $('#gIdleNote'); if (!note){ note = document.createElement('p'); note.className = 'info'; note.id = 'gIdleNote'; cs.after(note); }
     note.hidden = !idle.length;
-    if (idle.length) note.textContent = T('{n} stops are only on lines without vehicles and are not counted as reached.', {n:idle.length});
+    if (idle.length) note.textContent = T(idle.length === 1 ? '1 stop is only on lines without vehicles and is not counted as reached.' : '{n} stops are only on lines without vehicles and are not counted as reached.', {n:idle.length});
   }
   const ri = G.routeInfo;
   $('#gRoadsRow').hidden = !(G.edges && G.edges.length);

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.12.0
+- Line stats: the selected line's card shows its stops, length, vehicles and seats (vehicles need mod revision 6).
+- Hide lines: an eye in the line list hides a line from the map without deleting it; "Show all" brings them back.
+- Vehicle routes: with a game line selected, a thin thread with arrows shows the route its vehicles were actually driving when you exported; the card says how many stretches were recorded.
+- Station buildings (bus and tram stations, railway stations) get a square plate behind their marker, so they stand apart from stops on the road; the station card says how many terminals it has.
+- Coverage: every catchment circle of a game stop is drawn (a station has one per terminal); stops that only idle lines call at no longer count as reached; the station card says how many residents and jobs the game itself counts in a stop's catchment; a planned stop's reach defaults to the usual reach of the stops in your save.
+- Game map: roads and buildings are drawn as vectors at the current zoom, so they stay crisp however far you zoom in. Three looks in ⚙ Settings → Map display: Atlas, Plan, Ink.
+- Heatmaps: four looks in ⚙ Settings → Map display: Ember, Field guide, Bands, Sea.
+- Mod revision 6: exports every catchment circle, station buildings vs road stops, and vehicles per line. Restart the game so mod.io updates it, or copy the console command again, then re-import.
+- Under the hood: the app is split into one file per area instead of one 4,300-line page.
+
 ## 2.11.0
 - Game map: roads are drawn by size and type, like a road atlas — lanes thin, town streets white, avenues yellow, country roads grey-edged, highways orange. Needs mod revision 5 (restart the game so mod.io updates it) or a freshly copied console command, then re-import.
 

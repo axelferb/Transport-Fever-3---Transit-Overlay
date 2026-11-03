@@ -135,6 +135,9 @@ function ui(){
   }
   setVal($('#setFade'), S.settings.fade); setVal($('#setSize'), S.settings.size);
   $('#terrainOpts').hidden = !(S.game && S.game.terrain);
+  $('#mapStyleRow').hidden = !(S.game && bg.kind === 'game');
+  document.querySelectorAll('#setHeatStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.style === (S.settings.heatStyle || 'ember'))));
+  document.querySelectorAll('#setMapStyle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.style === (S.settings.mapStyle || 'atlas'))));
   $('#setTerrain').checked = S.settings.terrain !== false;
   if (document.activeElement !== $('#setWater')) $('#setWater').value = S.game && S.game.terrain ? waterLevel() : '';
   $('#setGray').checked = !!S.settings.gray; $('#setBadges').checked = S.settings.badges !== false; $('#setLegend').checked = !!S.settings.legend;
@@ -223,6 +226,8 @@ $('#setFade').addEventListener('input', e => { S.settings.fade = +e.target.value
 $('#setSize').addEventListener('input', e => { S.settings.size = +e.target.value; draw(); autosave(); });
 $('#setGray').addEventListener('change', e => { S.settings.gray = e.target.checked; draw(); autosave(); });
 function repaintGameMap(){ if (bg.kind === 'game' && S.game){ const c = makeGameMap(); bg.img = c; bg.w = c.width; bg.h = c.height; draw(); } }
+$('#setHeatStyle').addEventListener('click', e => { const b = e.target.closest('button[data-style]'); if (!b) return; S.settings.heatStyle = b.dataset.style; gapCache = {sig:null}; cgapCache = {sig:null}; ui(); draw(); autosave(); });
+$('#setMapStyle').addEventListener('click', e => { const b = e.target.closest('button[data-style]'); if (!b) return; S.settings.mapStyle = b.dataset.style; repaintGameMap(); ui(); autosave(); });
 $('#setTerrain').addEventListener('change', e => { S.settings.terrain = e.target.checked; repaintGameMap(); autosave(); });
 $('#setWater').addEventListener('change', e => { const v = e.target.value; S.settings.waterLevel = v === '' ? null : +v; repaintGameMap(); autosave(); });
 $('#setBadges').addEventListener('change', e => { S.settings.badges = e.target.checked; draw(); autosave(); });

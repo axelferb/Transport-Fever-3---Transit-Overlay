@@ -247,7 +247,16 @@ function drawLegend(g){
 }
 function renderScene(g, screen){
   const u = U();
-  if (bg.img){ g.save(); if (S.settings.gray) g.filter = 'grayscale(1)'; g.drawImage(bg.img, 0, 0, bg.w, bg.h); g.restore(); }
+  if (bg.img){
+    g.save(); if (S.settings.gray) g.filter = 'grayscale(1)';
+    const live = screen && bg.kind === 'game' && S.game && gameMapCache.game === S.game && gameMapCache.base && S.game.xf && S.settings.vectorMap !== false;
+    if (live){ // the game map drawn at this zoom: terrain from the base bitmap, roads and buildings as vectors
+      g.drawImage(gameMapCache.base, 0, 0, bg.w, bg.h);
+      const z = view.z, clip = {x0:(-view.x)/z, y0:(-view.y)/z, x1:(cw - view.x)/z, y1:(ch - view.y)/z};
+      g.save(); g.beginPath(); g.rect(0, 0, bg.w, bg.h); g.clip(); drawMapContent(g, pxPerM(), z, clip); g.restore();
+    } else g.drawImage(bg.img, 0, 0, bg.w, bg.h);
+    g.restore();
+  }
   if (S.settings.fade > 0){ g.fillStyle = `rgba(255,255,255,${S.settings.fade})`; g.fillRect(0, 0, bg.w, bg.h); }
   const showCov = activeTab === 'coverage';
   if (showCov){ drawRadii(g, u); drawCoverage(g, u); }
