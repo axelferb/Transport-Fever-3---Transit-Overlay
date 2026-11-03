@@ -107,11 +107,25 @@
       </div>
     </section>
 
+    <section id="bldPanel" data-key="bld" hidden data-tabs="coverage cargo">
+      <div class="bld-ttl"><h2 id="bldTitle">Building</h2><span class="cap" id="bldCap"></span></div>
+      <span class="kind" id="bldKind"></span>
+      <div id="bldPeople" class="stack"></div>
+      <h3 class="sub" id="bldLinesHead">Lines they ride</h3>
+      <div id="bldLines" class="bld-list"></div>
+      <h3 class="sub" id="bldGoodsHead">Goods on their way here</h3>
+      <div id="bldGoods" class="bld-list"></div>
+      <p class="note" id="bldNote"></p>
+      <div class="row"><button class="btn" id="bldClose">Close</button></div>
+    </section>
+
     <section id="indPanel" data-key="ind" hidden data-tabs="cargo">
       <h2>Industry</h2>
       <h3 class="ind-title" id="indTitle"></h3>
       <p class="info" id="indMeta"></p>
       <div id="indIO" class="io"></div>
+      <h3 class="sub" id="indGoodsHead" hidden>Goods on their way here</h3>
+      <div id="indGoods" class="bld-list" hidden></div>
       <div class="row"><button class="btn" id="indClose">Close</button></div>
     </section>
 
@@ -318,6 +332,7 @@
 <script src="example.js"></script>
 <script src="game.js"></script>
 <script src="cargo.js"></script>
+<script src="building.js"></script>
 <script src="ui.js"></script>
 <script src="boot.js"></script>
 </body></html>

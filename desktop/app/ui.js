@@ -41,6 +41,7 @@ function ui(){
   renderLegend();
   gameUI();
   cargoUI();
+  buildingUI();
   if (typeof tabUI === 'function') try { tabUI(); } catch {}
   document.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === tool));
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === newMode));
@@ -161,6 +162,8 @@ function ui(){
   }
   else if (tool === 'station') h = (S.game && S.game.xf) ? 'Click to add a stop. It snaps to the nearest road (hold Alt to place it freely) or onto a line.' : 'Click a point where lines meet to mark a station';
   else if (tool === 'cut') h = 'Click a segment to cut it out of its line. The line splits there; other lines on the same street stay.';
+  else if (activeTab === 'coverage' && S.game && S.game.xf) h = 'Click a building to see who lives or works there and how they travel · drag your planned stops to try other spots';
+  else if (activeTab === 'cargo' && S.game && S.game.xf) h = 'Click an industry or a business to see what it needs and where it comes from · squares are industries, triangles are businesses that want goods';
   else h = 'Click a segment to select it (Delete cuts it) · drag points to move them · double-click a line to add a bend';
   if (alignPick && S.game){ const s2 = S.game.groups[$(alignPick === 1 ? '#gA1' : '#gA2').value]; h = s2 ? T('Click where {name} is on the screenshot', {name:s2.name}) : T('Click where the station is on the screenshot'); }
   $('#hint').textContent = T(h);
@@ -370,7 +373,7 @@ function setTab(t){
   activeTab = t;
   try { localStorage.setItem('tfo-tab', t); } catch {}
   finishLine(false);
-  sel = {line:null, branch:null, node:null}; sel_ind = null;
+  sel = {line:null, branch:null, node:null}; sel_ind = null; sel_bld = null;
   if (!TAB_TOOLS[t].includes(tool)) tool = t === 'coverage' ? 'station' : 'edit';
   ui(); draw();
 }
@@ -386,9 +389,9 @@ function tabUI(){
   $('#noGameSec').hidden = hasGame && !(activeTab === 'cargo' && !(S.game.industries && S.game.industries.length));
   $('#noGameTitle').textContent = T(hasGame ? 'No cargo data yet' : 'Needs game data');
   $('#noGameText').textContent = T(hasGame ? 'Your last export has no industries. Copy the export command again in ⚙ Settings (it now includes cargo), run it in the game, and the map updates.' : 'Coverage and cargo come from your Transport Fever 3 save. Open ⚙ Settings → Game connection to import it.');
-  if (activeTab === 'cargo' && !alignPick) $('#hint').textContent = T('Click an industry to see what it needs and makes · squares are industries, triangles are businesses that want goods');
+  if (activeTab === 'cargo' && !alignPick) $('#hint').textContent = T('Click an industry or a business to see what it needs and where it comes from · squares are industries, triangles are businesses that want goods');
   else if (activeTab === 'settings') $('#hint').textContent = T('Settings · your map stays as it is while you change things here');
-  else if (activeTab === 'coverage' && tool === 'edit') $('#hint').textContent = T('Drag your planned stops to try other spots · coverage updates as you move them');
+  else if (activeTab === 'coverage' && tool === 'edit') $('#hint').textContent = T('Click a building to see who lives or works there and how they travel · drag your planned stops to try other spots');
   $('#linesCargoRow').hidden = activeTab !== 'lines' || !S.lines.some(l => l.cargo);
   const lh = document.querySelector('section[data-key="lines"] h2'); if (lh) lh.textContent = T(activeTab === 'coverage' ? 'Passenger lines' : activeTab === 'cargo' ? 'Cargo lines' : 'Lines');
   $('#linesCargo').checked = !!S.settings.linesShowCargo;

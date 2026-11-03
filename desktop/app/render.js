@@ -261,6 +261,7 @@ function renderScene(g, screen){
   const showCov = activeTab === 'coverage';
   if (showCov){ drawRadii(g, u); drawCoverage(g, u); }
   if (activeTab === 'cargo'){ drawCargoRadii(g, u); if (S.game && S.game.xf && S.game.industries && S.settings.cargoHeat !== false && (S.settings.cargoView || 'problems') !== 'off') drawCargoGapHeat(g); drawCargo(g, u); }
+  if (screen && (showCov || activeTab === 'cargo') && S.game && S.game.xf) drawSelBuilding(g, u);
   const G = computeGeometry();
   drawNetwork(g, G, u, screen);
   if (screen && sel.line != null && S.game && S.settings.vehiclePath !== false){ const l = lineById(sel.line); if (l && l.gameId) drawVehiclePath(g, l, u, view.z); }

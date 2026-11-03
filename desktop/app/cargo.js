@@ -218,4 +218,7 @@ function cargoUI(){
   s.st.req.forEach(x => line(T('Needs {good}', {good:cargoName(x.cargo)}), x.cf > 0, x.cf > 0 ? T('rate {n}', {n:x.cf.toFixed(0)}) : T('not delivered')));
   s.st.opt.forEach(x => line(T('{good} (boosts output)', {good:cargoName(x.cargo)}), x.cf > 0, T(x.cf > 0 ? 'delivered' : 'optional')));
   s.st.outputs.forEach(o => line(T('Makes {good}', {good:cargoName(o.cargo)}), o.rate > 0, o.rate > 0 ? T('rate {n}', {n:o.rate.toFixed(0)}) : T('not producing')));
+  // where its inputs come from (mod 7+)
+  const ng = hasFlowData() ? goodsRows($('#indGoods'), ind.id, s.st) : 0;
+  $('#indGoodsHead').hidden = $('#indGoods').hidden = !ng;
 }

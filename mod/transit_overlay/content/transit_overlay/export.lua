@@ -35,8 +35,9 @@ function export.run()
 	end
 	-- "mod:<revision>" tells the desktop app which mod made this export, so it can warn when the
 	-- mod and the app are out of step. Keep it equal to "revision" in mod.json.
-	P("TFO|BEGIN|1|mod:6")
+	P("TFO|BEGIN|1|mod:7")
 	local sgs,sgList={},{}
+	local slOwner={} -- stock list entity -> the town building or industry it belongs to (cargo items name the stock list)
 	local ok,err=pcall(function()
 	  for _,l in ipairs(arr(S.lineSystem.getLines())) do
 	    local ln=g(l,C.LINE) local nm=g(l,C.NAME) local co=g(l,C.COLOR)
@@ -92,7 +93,7 @@ function export.run()
 	        local pce=(tbc and tbc.personCapacity) or b
 	        local pc=(pce and pce>=0) and g(pce,C.PERSON_CAPACITY) or nil
 	        rows[#rows+1]=b..","..f1(x)..","..f1(y)..","..((pc and pc.capacity) or 0)..","..((pc and pc.type) or -1)..","..town..","..pce
-	        if tbc and tbc.stockList and tbc.stockList>=0 then local oks,si=pcall(stockInfo,tbc.stockList) if oks and si then P("TFO|S|"..b.."|"..si) end end
+	        if tbc and tbc.stockList and tbc.stockList>=0 then slOwner[tbc.stockList]=b local oks,si=pcall(stockInfo,tbc.stockList) if oks and si then P("TFO|S|"..b.."|"..si) end end
 	      end
 	    end
 	  end
@@ -105,6 +106,7 @@ function export.run()
 	      if not x and ind and ind.construction then x,y=center(ind.construction) end
 	      if not x then return end
 	      local nm=g(e,C.NAME) if (not nm) and ind and ind.construction then nm=g(ind.construction,C.NAME) end
+	      if ind and ind.stockList and ind.stockList>=0 then slOwner[ind.stockList]=e end
 	      local si=stockInfo((ind and ind.stockList) or e) or "||"
 	      P("TFO|I|"..e.."|"..f1(x)..","..f1(y).."|"..((ind and ind.level) or 0).."|"..esc(nm and nm.name).."|"..si)
 	    end)
@@ -144,6 +146,66 @@ function export.run()
 	    P("TFO|V|"..l.."|"..nv.."|"..seats.."|"..cap)
 	  end
 	end) if not ok then P("TFO|ERR|routes|"..esc(err)) end
+	-- CONSOLE-SKIP-BEGIN (this section is left out of the console command, which must stay under ~9.5 kB)
+	-- Where a building's traffic comes from (mod 7+), a snapshot at export time.
+	-- People: every person's home, shop and work building with the move mode used to get there, counted per
+	-- building and role as "P" rows "building,role,walk,drive,lines,other" (roles 1 home, 2 shop, 3 work); and
+	-- everyone on a trip right now by line and stops as "Q" rows "building,role,line,stop0,stop1,people" (stop
+	-- indices on the line; a trip counts for the home and for the destination it is between).
+	-- Cargo: every item that exists, by target, as "F" rows "target,cargo,source,lines,vehicle,terminal,stock,other":
+	-- lines as line:stop0:stop1 joined with "/" (stops -1 when only known from an earlier pickup), then how many
+	-- items are in a vehicle, waiting at a station, waiting at a stock, or elsewhere. Targets and sources are
+	-- town buildings or industries (stock lists mapped to their owner); -1 when unknown.
+	ok,err=pcall(function()
+	  local pc2b={} pcall(function() for pc,b in pairs(S.townBuildingSystem.getPersonCapacity2townBuildingMap()) do pc2b[pc]=b end end)
+	  local function own(e) if e==nil or e<0 then return -1 end local b=pc2b[e] if b~=nil then return b end return slOwner[e] or e end
+	  local function mm(m) if type(m)=="number" then return math.min(3,math.max(0,m)) end local s=tostring(m or "") if s:find("WALK") then return 0 elseif s:find("DRIVE") then return 1 elseif s:find("LINES") then return 2 end return 3 end
+	  -- state of a sim entity: 1 in a vehicle, 2 waiting at a station, 3 moving on its own, 4 waiting at a stock; plus line and stops when on a line
+	  local function state(e)
+	    local okv,v=pcall(g,e,C.SIM_ENTITY_AT_VEHICLE) if okv and v and v.line then return 1,v.line,v.lineStop0,v.lineStop1 end
+	    local okt,t=pcall(g,e,C.SIM_ENTITY_AT_TERMINAL) if okt and t and t.line then return 2,t.line,t.lineStop0,t.lineStop1 end
+	    local oks,s=pcall(g,e,C.SIM_ENTITY_AT_STOCK) if oks and s then return 4,-1 end
+	    local okm,m=pcall(g,e,C.SIM_ENTITY_MOVING) if okm and m then return 3,m.line,m.lineStop0,m.lineStop1 end
+	    return 0,-1
+	  end
+	  local PR,QR,FR,seen={},{},{},{}
+	  for _,list in pairs(S.simPersonSystem.getDestination2SpMap()) do
+	    for _,p in ipairs(arr(list)) do
+	      if not seen[p] then seen[p]=true
+	        pcall(function()
+	          local sp=g(p,C.SIM_PERSON) if not sp then return end
+	          local ds,ms=arr(sp.destinations),arr(sp.moveModes)
+	          local st,ln,s0,s1=state(p) if not (ln and ln>=0) then ln=nil end
+	          local bs={} for i=1,#ds do bs[i]=own(ds[i]) end
+	          local tgt=own(sp.targetOrAtEntity) local ti=nil for i=2,#bs do if bs[i]==tgt then ti=i end end
+	          for i=1,#bs do
+	            local b=bs[i] if b>=0 then
+	              local k=b..","..i local c=PR[k] if not c then c={0,0,0,0} PR[k]=c end
+	              local m=mm(ms[i]) c[m+1]=c[m+1]+1
+	              if ln and (ti==nil or i==1 or i==ti) then local q=k..","..ln..","..(s0 or -1)..","..(s1 or -1) QR[q]=(QR[q] or 0)+1 end
+	            end
+	          end
+	        end)
+	      end
+	    end
+	  end
+	  api.engine.forEachEntityWithComponent(function(e)
+	    pcall(function()
+	      local sc=g(e,C.SIM_CARGO) if not sc then return end
+	      local st,ln,s0,s1=state(e)
+	      local ls,li={},{}
+	      for _,pp in ipairs(arr(sc.pickupPoints)) do local l=pp.line if l and l>=0 and not li[l] then li[l]=#ls+1 ls[#ls+1]=l..":-1:-1" end end
+	      if ln and ln>=0 then local x=ln..":"..(s0 or -1)..":"..(s1 or -1) if li[ln] then ls[li[ln]]=x else ls[#ls+1]=x end end
+	      local k=own(sc.targetOrPickupEntity)..","..(sc.cargoType or 0)..","..own(sc.sourceEntity)..","..tc(ls,"/")
+	      local c=FR[k] if not c then c={0,0,0,0} FR[k]=c end
+	      local j=(st==1) and 1 or (st==2) and 2 or (st==4) and 3 or 4 c[j]=c[j]+1
+	    end)
+	  end, C.SIM_CARGO)
+	  local rows={} for k,c in pairs(PR) do rows[#rows+1]=k..","..tc(c,",") end chunks("TFO|P|","",rows,150)
+	  rows={} for k,n in pairs(QR) do rows[#rows+1]=k..","..n end chunks("TFO|Q|","",rows,150)
+	  rows={} for k,c in pairs(FR) do rows[#rows+1]=k..","..tc(c,",") end chunks("TFO|F|","",rows,100)
+	end) if not ok then P("TFO|ERR|people|"..esc(err)) end
+	-- CONSOLE-SKIP-END
 	local epos,eseen,erows,eerr={}, {}, {}, false
 	local function enp(n) local p=epos[n] if p==nil then local bn=g(n,C.BASE_NODE) p=(bn and bn.position) or false epos[n]=p if p then bbx(p.x,p.y) end end return p end
 	-- Street width in metres and speed: "<roadway>,<roadway plus both sidewalks>,<speed limit km/h>", from the edge's

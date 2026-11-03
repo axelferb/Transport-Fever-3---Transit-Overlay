@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.14.0
+- Building card: in Coverage or Cargo, click a home, shop or workplace (Edit tool) to see who lives, works or shops there and how they travel (walk, car, lines), which lines they were riding when you exported and between which stops, and, for shops, town industry and industries, where each kind of goods comes from, on which lines, and how many items are in vehicles, waiting at a station or still at the source. Needs mod revision 7.
+- Mod revision 7: exports every person's home, shop and workplace with the move mode used, everyone on a line with their stops, and every cargo item with its source, target and lines. Restart the game so mod.io updates it, then re-import. The console command does not carry this data (it would go over the paste limit).
+
 ## 2.13.0
 - Schematic map, redrawn for bus networks after LOOM (Freiburg): stretches shared by several lines become one corridor with the lines ordered so they need not cross where they part; stations have one port per line, so a terminal where three or more lines end is a hub box with the station's name and a bay per line in the order they leave; a line that doubles back round a ring of stops is drawn as one stroke that forks into a box (three stops make a triangle); each line leaving a terminal keeps to its own wedge of the compass, stops keep off stretches and loops they are not part of, and everything is spread further out.
 

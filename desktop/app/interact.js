@@ -119,7 +119,7 @@ function setCursor(p){
   if (tool === 'draw') cvs.style.cursor = 'crosshair';
   else if (tool === 'station') cvs.style.cursor = hover ? 'pointer' : 'default';
   else if (tool === 'cut') cvs.style.cursor = hoverSeg ? 'pointer' : 'crosshair';
-  else cvs.style.cursor = nearestNode(p, 11/view.z) != null ? 'move' : (hitLine(p) ? 'pointer' : 'default');
+  else cvs.style.cursor = nearestNode(p, 11/view.z) != null ? 'move' : (hitLine(p) || (activeTab === 'cargo' && hitIndustry(p) != null) || hitBuilding(p) != null) ? 'pointer' : 'default';
 }
 
 function click(p, e){
@@ -157,6 +157,7 @@ function click(p, e){
     const h = hitLine(p);
     sel = h ? {line:h.line, branch:h.branch, seg:h.seg, node:null} : {line:null, branch:null, seg:null, node:null};
     sel_ind = (h || activeTab !== 'cargo') ? null : hitIndustry(p);
+    sel_bld = (h || sel_ind != null) ? null : hitBuilding(p);
     ui(); draw();
   }
 }

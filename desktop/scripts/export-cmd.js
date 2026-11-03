@@ -7,7 +7,11 @@ const fs = require('fs'), path = require('path'), luamin = require('luamin');
 const root = path.join(__dirname, '..', '..');
 const lua = fs.readFileSync(path.join(root, 'mod/transit_overlay/content/transit_overlay/export.lua'), 'utf8').split('\n');
 const a = lua.findIndex(l => l.startsWith('function export.run()')) + 2, b = lua.lastIndexOf('return export') - 2;
+// Everything between CONSOLE-SKIP-BEGIN and CONSOLE-SKIP-END (people and cargo flows, mod 7+) is left out:
+// the console command would otherwise go over the paste limit. Those exports come from the mod only.
+let skip = false;
 const body = lua.slice(a, b).map(l => l.replace(/^\t/, ''))
+  .filter(l => { if (l.startsWith('-- CONSOLE-SKIP-BEGIN')) skip = true; const drop = skip; if (l.startsWith('-- CONSOLE-SKIP-END')) skip = false; return !drop; })
   .filter(l => !l.startsWith('-- "mod:<revision>"') && !l.startsWith('-- mod and the app are out of step'))
   .map(l => l.replace(/P\("TFO\|BEGIN\|1\|mod:\d+"\)/, 'P("TFO|BEGIN|1|console")'));
 const readable = body.join('\n') + '\n';
