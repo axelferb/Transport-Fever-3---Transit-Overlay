@@ -118,21 +118,21 @@ ok,err=pcall(function()
 end) if not ok then P("TFO|ERR|routes|"..esc(err)) end
 local epos,eseen,erows,eerr={}, {}, {}, false
 local function enp(n) local p=epos[n] if p==nil then local bn=g(n,C.BASE_NODE) p=(bn and bn.position) or false epos[n]=p if p then bbx(p.x,p.y) end end return p end
--- Street width in metres: "<roadway>,<roadway plus both sidewalks>", summed from the edge's TRANSPORT_NETWORK lanes
--- (TF3 has no streetTypeRep). Sidewalks are the lanes that carry only persons/cargo (modes 0,1); tram-only lanes
--- (5,6 without car mode 2) overlap the roadway and are skipped. "0,0" when unknown.
+-- Street width in metres and speed: "<roadway>,<roadway plus both sidewalks>,<speed limit km/h>", from the edge's
+-- TRANSPORT_NETWORK lanes (TF3 has no streetTypeRep). Sidewalks are the lanes that carry only persons/cargo
+-- (modes 0,1); tram-only lanes (5,6 without car mode 2) overlap the roadway and are skipped. "0,0,0" when unknown.
 local function swidth(e)
-  local road,walk=0,0
+  local road,walk,spd=0,0,0
   local ok=pcall(function()
     for _,l in ipairs(arr(g(e,C.TRANSPORT_NETWORK).edges)) do
       local w=tonumber(l.geometry and l.geometry.width) or 0 local m=l.transportModes
       local car,tram,veh=m[2]==true,(m[5]==true or m[6]==true),false
       for i=2,16 do if m[i]==true then veh=true end end
-      if not veh then walk=walk+w elseif car or not tram then road=road+w end
+      if not veh then walk=walk+w elseif car or not tram then road=road+w local v=tonumber(l.speedLimit) or 0 if v>spd then spd=v end end
     end
   end)
-  if not ok or road<=0 then return "0,0" end
-  return f1(road)..","..f1(road+walk)
+  if not ok or road<=0 then return "0,0,0" end
+  return f1(road)..","..f1(road+walk)..","..string.format("%.0f",spd*3.6)
 end
 local function escan(kind,getmap)
   local ok2,err2=pcall(function()
@@ -145,7 +145,7 @@ local function escan(kind,getmap)
               local p0,p1=enp(be.node0),enp(be.node1)
               if p0 and p1 then
                 local t0,t1=be.tangent0,be.tangent1
-                erows[#erows+1]=e..","..be.node0..","..be.node1..","..f1(p0.x)..","..f1(p0.y)..","..f1(p1.x)..","..f1(p1.y)..","..(t0 and (f1(t0.x)..","..f1(t0.y)) or "0,0")..","..(t1 and (f1(t1.x)..","..f1(t1.y)) or "0,0")..","..kind..","..(kind=="s" and swidth(e) or "0,0")
+                erows[#erows+1]=e..","..be.node0..","..be.node1..","..f1(p0.x)..","..f1(p0.y)..","..f1(p1.x)..","..f1(p1.y)..","..(t0 and (f1(t0.x)..","..f1(t0.y)) or "0,0")..","..(t1 and (f1(t1.x)..","..f1(t1.y)) or "0,0")..","..kind..","..(kind=="s" and swidth(e) or "0,0,0")
               end
             end
           end)
