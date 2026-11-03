@@ -2,7 +2,8 @@
 
 ## 2.12.0
 - Line stats: the selected line's card shows its stops, length, vehicles and seats (vehicles need mod revision 6).
-- Hide lines: an eye in the line list hides a line from the map without deleting it; "Show all" brings them back.
+- Hide lines: an eye in the line list hides a line from the map without deleting it; "Show all" and "Hide all" sit in the list's title.
+- Hovering a stop or station in any tool shows a card with its name, kind, lines and what it reaches.
 - Vehicle routes: with a game line selected, a thin thread with arrows shows the route its vehicles were actually driving when you exported; the card says how many stretches were recorded.
 - Station buildings (bus and tram stations, railway stations) get a square plate behind their marker, so they stand apart from stops on the road; the station card says how many terminals it has.
 - Coverage: every catchment circle of a game stop is drawn (a station has one per terminal); stops that only idle lines call at no longer count as reached; the station card says how many residents and jobs the game itself counts in a stop's catchment; a planned stop's reach defaults to the usual reach of the stops in your save.

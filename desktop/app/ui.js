@@ -70,12 +70,19 @@ function ui(){
     list.append(row);
   });
   $('#linesEmpty').hidden = S.lines.length > 0;
-  { // "Show all" in the section title while something is hidden
+  { // Show all / Hide all in the section title; each applies to the lines of this tab
     const nHid = inTab.filter(l => l.hidden).length, h2 = $('#linesHead');
-    let all = $('#linesShowAll');
-    if (!all){ all = document.createElement('button'); all.type = 'button'; all.className = 'sc-all'; all.id = 'linesShowAll'; h2.after(all);
-      all.addEventListener('click', e => { e.stopPropagation(); commit(); S.lines.forEach(l => { if (lineInTab(l)) l.hidden = false; }); ui(); draw(); }); }
-    all.hidden = !nHid; all.textContent = T('Show all ({n} hidden)', {n:nHid});
+    let box = $('#linesAll');
+    if (!box){
+      box = document.createElement('span'); box.id = 'linesAll'; box.className = 'sc-all-box'; h2.after(box);
+      for (const [id, on] of [['linesShowAll', false], ['linesHideAll', true]]){
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'sc-all'; b.id = id; box.append(b);
+        b.addEventListener('click', e => { e.stopPropagation(); commit(); S.lines.forEach(l => { if (lineInTab(l)) l.hidden = on; }); ui(); draw(); });
+      }
+    }
+    box.hidden = !inTab.length;
+    $('#linesShowAll').textContent = T('Show all'); $('#linesShowAll').disabled = !nHid;
+    $('#linesHideAll').textContent = T('Hide all'); $('#linesHideAll').disabled = nHid === inTab.length;
   }
 
   const l = sel.line != null ? lineById(sel.line) : null;

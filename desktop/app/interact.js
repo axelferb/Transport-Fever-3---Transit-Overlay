@@ -52,8 +52,43 @@ cvs.addEventListener('pointermove', e => {
   else hover = null;
   hoverSeg = tool === 'cut' ? hitLine(p) : null;
   setCursor(p);
+  stopCard(ptr ? null : p, e);
   draw();
 });
+/* A card about the stop or station under the pointer, in every tool: name, kind, lines and reach.
+   Clicking still does what the tool does; the card is read-only. */
+let cardFor = null;
+function stopCard(p, e){
+  const el = $('#stopCard');
+  const id = p ? nearestNode(p, 12/view.z) : null, st = id != null ? S.stations[id] : null;
+  if (!st || !stopVisible(st) || st.secondary){ if (cardFor != null){ cardFor = null; el.hidden = true; } return; }
+  if (cardFor !== id){
+    cardFor = id; el.textContent = '';
+    const h = document.createElement('b'); h.textContent = st.name || T('Unnamed stop'); el.append(h);
+    const add = t => { const d = document.createElement('div'); d.textContent = t; el.append(d); };
+    const lines = S.lines.filter(l => lineHasNode(l, id) && (!l.gameId || !S.game || (() => { const gl = S.game.lines.find(x => x.id === l.gameId); return !gl || st.sg == null || gl.stops.some(x => String(x) === String(st.sg)); })()));
+    if (st.game) add(st.building ? T('Station building ({t} terminals)', {t:st.terminals || '?'}) : T('Stop on the road'));
+    else add(T('Planned stop'));
+    if (lines.length) add((lines.length === 1 ? T('1 line: ') : T('{n} lines: ', {n:lines.length})) + lines.slice(0, 4).map(l => l.name).join(', ') + (lines.length > 4 ? ' …' : ''));
+    if (S.game && S.game.xf){
+      if (st.game){
+        const ids = new Set(S.game.catch[st.sg] || []), got = [0, 0, 0];
+        for (const b of S.game.buildings){ if (!CATS[b[4]]) continue; if (ids.has(b[0]) || (b[6] != null && ids.has(b[6]))) got[b[4]] += b[3]; }
+        add(T('Reach {r} m · {a} residents, {b} jobs', {r:st.r || '?', a:got[0].toLocaleString(LOCALE()), b:(got[1] + got[2]).toLocaleString(LOCALE())}));
+      } else if (!isCargoStop(id)){
+        const mine = planCoverage().per[id] || new Set(), cov = gameCovered(); let tot = 0, gain = 0;
+        for (const b of S.game.buildings){ if (!mine.has(b[0]) || !CATS[b[4]]) continue; tot += b[3]; if (!isServed(b, cov)) gain += b[3]; }
+        add(T('Reach {r} m · {a} people, {b} new', {r:st.radius || defaultReach(), a:tot.toLocaleString(LOCALE()), b:gain.toLocaleString(LOCALE())}));
+      }
+    }
+    el.hidden = false;
+  }
+  const r = stage.getBoundingClientRect(); let x = e.clientX - r.left + 16, y = e.clientY - r.top + 16;
+  if (x + el.offsetWidth > r.width - 8) x = e.clientX - r.left - el.offsetWidth - 12;
+  if (y + el.offsetHeight > r.height - 8) y = e.clientY - r.top - el.offsetHeight - 12;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+cvs.addEventListener('pointerleave', () => { cardFor = null; $('#stopCard').hidden = true; });
 function endPointer(e){
   pointers.delete(e.pointerId);
   if (!ptr) return;
