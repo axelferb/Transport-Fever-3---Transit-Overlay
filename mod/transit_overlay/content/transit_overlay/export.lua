@@ -128,14 +128,23 @@ function export.run()
 	    end
 	  end
 	end) if not ok then P("TFO|ERR|routes|"..esc(err)) end
-	local epos,eseen,erows,eerr,stw={}, {}, {}, false, {}
+	local epos,eseen,erows,eerr={}, {}, {}, false
 	local function enp(n) local p=epos[n] if p==nil then local bn=g(n,C.BASE_NODE) p=(bn and bn.position) or false epos[n]=p if p then bbx(p.x,p.y) end end return p end
-	-- Street width in metres: "<roadway>,<roadway plus both sidewalks>", read once per street type; "0,0" when unknown (tracks).
+	-- Street width in metres: "<roadway>,<roadway plus both sidewalks>", summed from the edge's TRANSPORT_NETWORK lanes
+	-- (TF3 has no streetTypeRep). Sidewalks are the lanes that carry only persons/cargo (modes 0,1); tram-only lanes
+	-- (5,6 without car mode 2) overlap the roadway and are skipped. "0,0" when unknown.
 	local function swidth(e)
-	  local okS,bs=pcall(g,e,C.BASE_EDGE_STREET) if not okS or not bs or not bs.streetType then return "0,0" end
-	  local st=bs.streetType local c=stw[st]
-	  if c==nil then c=false pcall(function() local r=api.res.streetTypeRep.get(st) local sw=tonumber(r.streetWidth) or 0 if sw<=0 then for _,lc in ipairs(arr(r.laneConfigs)) do sw=sw+(tonumber(lc.width) or 0) end end if sw>0 then c=f1(sw)..","..f1(sw+2*(tonumber(r.sidewalkWidth) or 0)) end end) stw[st]=c end
-	  return c or "0,0"
+	  local road,walk=0,0
+	  local ok=pcall(function()
+	    for _,l in ipairs(arr(g(e,C.TRANSPORT_NETWORK).edges)) do
+	      local w=tonumber(l.geometry and l.geometry.width) or 0 local m=l.transportModes
+	      local car,tram,veh=m[2]==true,(m[5]==true or m[6]==true),false
+	      for i=2,16 do if m[i]==true then veh=true end end
+	      if not veh then walk=walk+w elseif car or not tram then road=road+w end
+	    end
+	  end)
+	  if not ok or road<=0 then return "0,0" end
+	  return f1(road)..","..f1(road+walk)
 	end
 	local function escan(kind,getmap)
 	  local ok2,err2=pcall(function()
