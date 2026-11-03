@@ -148,7 +148,8 @@ function export.run()
 	end) if not ok then P("TFO|ERR|routes|"..esc(err)) end
 	-- CONSOLE-SKIP-BEGIN (this section is left out of the console command, which must stay under ~9.5 kB)
 	-- Where a building's traffic comes from (mod 7+), a snapshot at export time.
-	-- People: every person's home, shop and work building with the move mode used to get there, counted per
+	-- People: every person's home, shop and work building with the move mode used to get there (for the home: the mode
+	-- used to get to work, or to the shop), counted per
 	-- building and role as "P" rows "building,role,walk,drive,lines,other" (roles 1 home, 2 shop, 3 work); and
 	-- everyone on a trip right now by line and stops as "Q" rows "building,role,line,stop0,stop1,people" (stop
 	-- indices on the line; a trip counts for the home and for the destination it is between).
@@ -181,7 +182,7 @@ function export.run()
 	          for i=1,#bs do
 	            local b=bs[i] if b>=0 then
 	              local k=b..","..i local c=PR[k] if not c then c={0,0,0,0} PR[k]=c end
-	              local m=mm(ms[i]) c[m+1]=c[m+1]+1
+	              local m=mm(i==1 and (ms[3] or ms[2]) or ms[i]) c[m+1]=c[m+1]+1
 	              if ln and (ti==nil or i==1 or i==ti) then local q=k..","..ln..","..(s0 or -1)..","..(s1 or -1) QR[q]=(QR[q] or 0)+1 end
 	            end
 	          end
@@ -196,33 +197,54 @@ function export.run()
 	-- at a stock, or waiting at a line stop (every stop of every line, every cargo type). Items walking between a
 	-- stop and a building on their own are not reachable this way and are left out.
 	ok,err=pcall(function()
-	  local FR,seen={},{}
-	  local function item(e)
-	    if seen[e] then return end seen[e]=true
-	    pcall(function()
+	  local FR,seen,cnt,firstErr={},{},{0,0,0},{}
+	  local veh2line={} pcall(function() for l,vs in pairs(S.transportVehicleSystem.getLine2VehicleMap()) do for _,v in ipairs(arr(vs)) do veh2line[v]=l end end end)
+	  -- lists from the stock and terminal systems hold {index, entity} pairs; the vehicle map holds entities
+	  local function ent(e) if type(e)=="number" then return e end local okp,v=pcall(function() return e[2] or e.entity or e[1] end) return okp and v or nil end
+	  local function item(x,src)
+	    local e=ent(x) if e==nil or seen[e] then return end seen[e]=true
+	    local okI,errI=pcall(function()
 	      local sc=g(e,C.SIM_CARGO) if not sc or (sc.cargoType or 0)==0 then return end
 	      local st,ln,s0,s1=state(e)
+	      if st==1 and not (ln and ln>=0) then -- in a vehicle: the vehicle knows its line and the stop it heads for
+	        local okv,v=pcall(g,e,C.SIM_ENTITY_AT_VEHICLE) local vh=okv and v and v.vehicle
+	        if vh and vh>=0 then ln=veh2line[vh] local okt,tv=pcall(g,vh,C.TRANSPORT_VEHICLE) if okt and tv then if (not ln or ln<0) and tv.line and tv.line>=0 then ln=tv.line end s0=-1 s1=tv.stopIndex end end
+	      end
 	      local ls,li={},{}
 	      for _,pp in ipairs(arr(sc.pickupPoints)) do local l=pp.line if l and l>=0 and not li[l] then li[l]=#ls+1 ls[#ls+1]=l..":-1:-1" end end
 	      if ln and ln>=0 then local x=ln..":"..(s0 or -1)..":"..(s1 or -1) if li[ln] then ls[li[ln]]=x else ls[#ls+1]=x end end
 	      local k=own(sc.targetOrPickupEntity)..","..sc.cargoType..","..own(sc.sourceEntity)..","..tc(ls,"/")
 	      local c=FR[k] if not c then c={0,0,0,0} FR[k]=c end
 	      local j=(st==1) and 1 or (st==2) and 2 or (st==4) and 3 or 4 c[j]=c[j]+1
+	      cnt[src]=cnt[src]+1
 	    end)
+	    if not okI and not firstErr[src] then firstErr[src]=tostring(errI) end
 	  end
-	  local okA,errA=pcall(function() for _,m in pairs(S.simEntityAtVehicleSystem.getVehicle2Cargo2SimEntitesMap()) do for ct,list in pairs(m) do if ct~=0 then for _,e in ipairs(arr(list)) do item(e) end end end end end)
+	  local okA,errA=pcall(function() for _,m in pairs(S.simEntityAtVehicleSystem.getVehicle2Cargo2SimEntitesMap()) do for ct,list in pairs(m) do if ct~=0 then for _,e in ipairs(arr(list)) do item(e,1) end end end end end)
 	  if not okA then P("TFO|ERR|cargo-vehicles|"..esc(errA)) end
-	  local okB,errB=pcall(function() for _,list in pairs(S.simEntityAtStockSystem.getStock2SimEntityMap()) do for _,e in ipairs(arr(list)) do item(e) end end end)
+	  -- at stocks: industries, town buildings and stations hold stock lists; every stock of every list
+	  local okB,errB=pcall(function()
+	    local gse=S.simEntityAtStockSystem.getStockEntities
+	    local sls={} for sl,_ in pairs(slOwner) do sls[#sls+1]=sl end
+	    for _,sg in ipairs(sgList) do local G=g(sg,C.STATION_GROUP) for _,st in ipairs(arr(G and G.stations)) do sls[#sls+1]=st end end
+	    for _,sl in ipairs(sls) do
+	      local okS,stk=pcall(g,sl,C.STOCK_LIST) local n=okS and stk and #arr(stk.stocks) or 0
+	      for i=0,n do local okL,list=pcall(gse,sl,i) if okL and list then for _,e in ipairs(arr(list)) do item(e,2) end end end
+	    end
+	    local okM,m=pcall(S.simEntityAtStockSystem.getStock2SimEntityMap) if okM and m then for _,list in pairs(m) do for _,e in ipairs(arr(list)) do item(e,2) end end end
+	  end)
 	  if not okB then P("TFO|ERR|cargo-stocks|"..esc(errB)) end
 	  local okC,errC=pcall(function()
 	    local cts={} local all=api.res.cargoTypeRep.getAll() for i=1,63 do if all[i] then cts[#cts+1]=i end end
 	    local gls=S.simEntityAtTerminalSystem.getLineStopSimEntities
 	    for _,l in ipairs(arr(S.lineSystem.getLines())) do
 	      local ln=g(l,C.LINE) local n=#arr(ln and ln.stops)
-	      for i=0,n do for _,ct in ipairs(cts) do local okL,list=pcall(gls,l,i,ct) if okL and list then for _,e in ipairs(arr(list)) do item(e) end end end end
+	      for i=0,n do for _,ct in ipairs(cts) do local okL,list=pcall(gls,l,i,ct) if okL and list then for _,e in ipairs(arr(list)) do item(e,3) end end end end
 	    end
 	  end)
 	  if not okC then P("TFO|ERR|cargo-stops|"..esc(errC)) end
+	  -- diagnostics for the log: items found in vehicles, at stocks, at stops, and the first error per source
+	  P("TFO|DBG|cargo|"..cnt[1]..","..cnt[2]..","..cnt[3].."|"..esc(firstErr[1] or "").."|"..esc(firstErr[2] or "").."|"..esc(firstErr[3] or ""))
 	  local rows={} for k,c in pairs(FR) do rows[#rows+1]=k..","..tc(c,",") end chunks("TFO|F|","",rows,100)
 	end) if not ok then P("TFO|ERR|cargo|"..esc(err)) end
 	-- CONSOLE-SKIP-END
