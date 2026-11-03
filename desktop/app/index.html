@@ -27,6 +27,7 @@
     <canvas id="map" aria-label="Map canvas"></canvas>
     <div class="floatbar">
       <div class="grp" role="group" aria-label="Tool" id="toolGrp">
+    <button id="tInspect" data-tool="inspect" title="Inspect: click anything to see what it is (I)">Inspect</button>
     <button id="tEdit" data-tool="edit" title="Select and move (V)">Edit</button>
     <button id="tDraw" data-tool="draw" title="Draw lines (D)">Draw</button>
     <button id="tStation" data-tool="station" title="Mark stations (S)">Station</button>
@@ -213,7 +214,7 @@
       <div id="cList" class="towns"></div>
       <h3 class="sub" id="cDemandHead">Goods towns want (delivered / wanted)</h3>
       <div id="cDemand" class="dem"></div>
-      <p class="info">Click an industry on the map in Edit mode to see what it needs and makes.</p>
+      <p class="info">With the Inspect tool, click an industry or a business on the map to see what it needs and where it comes from.</p>
     </section>
 
     <section data-key="lines" data-tabs="lines coverage cargo">
@@ -279,6 +280,7 @@
 
     <section class="keys" data-key="keys" data-tabs="lines">
       <h2>Shortcuts</h2>
+      <div class="row"><button class="btn" id="tipsBtn">How the app works</button></div>
       <dl>
         <dt>Ctrl+V</dt><dd>Paste screenshot</dd>
         <dt>Click line</dt><dd>With a line selected, start a branch from it</dd>
@@ -288,6 +290,7 @@
         <dt>Shift</dt><dd>Draw at 45° angles</dd>
         <dt>Alt</dt><dd>Place a point without snapping</dd>
         <dt>Space+drag</dt><dd>Pan · scroll wheel zooms</dd>
+        <dt>I</dt><dd>Inspect tool: click anything to see what it is</dd>
         <dt>X</dt><dd>Cut tool: click a segment to remove it</dd>
         <dt>Delete</dt><dd>Cut the selected segment, or remove the selected station or point</dd>
       </dl>
@@ -299,6 +302,15 @@
   <h2 id="wnHead">What's new</h2>
   <ul id="wnList"></ul>
   <div class="row"><button class="btn primary" id="wnOk">Got it</button><a class="btn" id="wnAll" href="#" target="_blank" rel="noopener">All release notes</a></div>
+</dialog>
+<dialog class="tips-dlg" id="tipsDlg" aria-labelledby="tipsHead">
+  <h2 id="tipsHead">How Transit Overlay works</h2>
+  <ol class="tips">
+    <li><b>Get your network in.</b><span>With the mod: click its button at the top left of the game. Without it: ⚙ Settings → Game connection → copy the command, run it in the game console, then import the log.</span></li>
+    <li><b>Pick a tab.</b><span>Lines draws and plans lines. Coverage shows what your stops reach and where a new one pays off. Cargo shows industries, shops and what they are missing. Schematic makes a metro-style map.</span></li>
+    <li><b>Use the tools.</b><span>Inspect: click anything to see what it is and who uses it. Station: add a planned stop. Draw: draw a line. Edit: move points, add bends, cut. Hover a stop for its card in any tool.</span></li>
+  </ol>
+  <div class="row"><button class="btn primary" id="tipsOk">Got it</button></div>
 </dialog>
 <dialog class="sc-dlg" id="scDlg" aria-labelledby="scHead">
   <div class="sc-side">

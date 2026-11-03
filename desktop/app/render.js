@@ -282,7 +282,7 @@ function paint(){
   renderScene(ctx, true);
   const z = view.z, u = U();
 
-  if (tool === 'edit' && (activeTab === 'lines' || activeTab === 'coverage')){
+  if ((tool === 'edit' || tool === 'inspect') && (activeTab === 'lines' || activeTab === 'coverage')){
     const show = new Set();
     const sl = sel.line != null ? lineById(sel.line) : null;
     if (sl) sl.branches.forEach(b => b.path.forEach(x => show.add(x)));

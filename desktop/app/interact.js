@@ -119,7 +119,8 @@ function setCursor(p){
   if (tool === 'draw') cvs.style.cursor = 'crosshair';
   else if (tool === 'station') cvs.style.cursor = hover ? 'pointer' : 'default';
   else if (tool === 'cut') cvs.style.cursor = hoverSeg ? 'pointer' : 'crosshair';
-  else cvs.style.cursor = nearestNode(p, 11/view.z) != null ? 'move' : (hitLine(p) || (activeTab === 'cargo' && hitIndustry(p) != null) || hitBuilding(p) != null) ? 'pointer' : 'default';
+  else if (tool === 'inspect') cvs.style.cursor = (nearestNode(p, 11/view.z) != null || hitLine(p) || (activeTab === 'cargo' && hitIndustry(p) != null) || hitBuilding(p) != null) ? 'pointer' : 'default';
+  else cvs.style.cursor = nearestNode(p, 11/view.z) != null ? 'move' : hitLine(p) ? 'pointer' : 'default';
 }
 
 function click(p, e){
@@ -153,11 +154,17 @@ function click(p, e){
   } else if (tool === 'cut'){
     const h = hitLine(p);
     if (h) cutSegment(h.line, h.branch, h.seg); else toast('Click on a line to cut that segment');
+  } else if (tool === 'inspect'){
+    // look, don't touch: a stop, a line, an industry or a building gets its card
+    const n = nearestNode(p, 11/view.z), h = n == null || !S.stations[n] ? hitLine(p) : null;
+    sel = n != null && S.stations[n] ? {line:null, branch:null, node:n} : h ? {line:h.line, branch:h.branch, seg:h.seg, node:null} : {line:null, branch:null, seg:null, node:null};
+    sel_ind = (sel.node != null || h || activeTab !== 'cargo') ? null : hitIndustry(p);
+    sel_bld = (sel.node != null || h || sel_ind != null) ? null : hitBuilding(p);
+    ui(); draw();
   } else {
     const h = hitLine(p);
     sel = h ? {line:h.line, branch:h.branch, seg:h.seg, node:null} : {line:null, branch:null, seg:null, node:null};
-    sel_ind = (h || activeTab !== 'cargo') ? null : hitIndustry(p);
-    sel_bld = (h || sel_ind != null) ? null : hitBuilding(p);
+    sel_ind = null; sel_bld = null;
     ui(); draw();
   }
 }
@@ -255,7 +262,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); deleteSelection(); return; }
   const k = e.key.toLowerCase();
-  if (k === 'v') setTool('edit'); else if (k === 'd') setTool('draw'); else if (k === 's') setTool('station'); else if (k === 'x') setTool('cut');
+  if (k === 'v') setTool('edit'); else if (k === 'i') setTool('inspect'); else if (k === 'd') setTool('draw'); else if (k === 's') setTool('station'); else if (k === 'x') setTool('cut');
   else if (k === 'f') fit();
   else if (['1','2','3','4','5'].includes(k)){ newMode = ORDER[+k - 1]; ui(); }
 });
