@@ -64,6 +64,7 @@
     <section id="linePanel" data-key="line" hidden data-tabs="lines coverage cargo">
       <h2>Selected line</h2>
       <div class="field"><label for="lnName">Name</label><input type="text" id="lnName" autocomplete="off"></div>
+      <p class="info" id="lnStats"></p>
       <div class="field"><label for="lnMode">Mode</label>
         <select id="lnMode" hidden><option value="subway">Subway</option><option value="train">Train</option><option value="tram">Tram</option><option value="bus">Bus</option><option value="ferry">Ferry</option></select>
         <div class="seg wrap" id="lnModeSeg" role="group" aria-label="Mode"><button type="button" data-mode="subway" aria-pressed="false">Subway</button><button type="button" data-mode="train" aria-pressed="false">Train</button><button type="button" data-mode="tram" aria-pressed="false">Tram</button><button type="button" data-mode="bus" aria-pressed="false">Bus</button><button type="button" data-mode="ferry" aria-pressed="false">Ferry</button></div></div>
@@ -199,7 +200,7 @@
     </section>
 
     <section data-key="lines" data-tabs="lines coverage cargo">
-      <h2>Lines</h2>
+      <h2 id="linesHead">Lines</h2>
       <div class="lines" id="lineList"></div>
       <p class="empty" id="linesEmpty" hidden>No lines yet. Pick a mode above, choose Draw, and click on the map.</p>
       <label class="check" id="linesCargoRow" hidden><input type="checkbox" id="linesCargo"> Show cargo lines here too</label>

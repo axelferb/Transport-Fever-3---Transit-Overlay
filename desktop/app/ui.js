@@ -18,6 +18,25 @@ function autosave(){
     catch { try { localStorage.removeItem(KEY); } catch {} }
   }, 900);
 }
+const EYE_ON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
+/* One line of numbers about a line: stops and length, and for a game line its vehicles and seats. */
+function lineStatsText(l){
+  const parts = [], gl = l.gameId && S.game ? S.game.lines.find(x => x.id === l.gameId) : null;
+  const stops = gl ? gl.stops.length : lineStopCount(l);
+  parts.push(T(stops === 1 ? '1 stop' : '{n} stops', {n:stops}));
+  if (S.game && S.game.xf){ const km = lineLengthPx(l) / pxPerM() / 1000; if (km > 0) parts.push(T('{km} km', {km:km.toLocaleString(LOCALE(), {maximumFractionDigits:1})})); }
+  if (gl && S.game.vehicles && Object.keys(S.game.vehicles).length){
+    const v = S.game.vehicles[gl.id];
+    if (!v || !v.n) parts.push(T('no vehicles'));
+    else {
+      parts.push(T(v.n === 1 ? '1 vehicle' : '{n} vehicles', {n:v.n}));
+      if (l.cargo){ if (v.cargo) parts.push(T('{n} cargo capacity', {n:v.cargo.toLocaleString(LOCALE())})); }
+      else if (v.seats) parts.push(T('{n} seats', {n:v.seats.toLocaleString(LOCALE())}));
+    }
+  }
+  return parts.join(' · ');
+}
 function ui(){
   renderLegend();
   gameUI();
@@ -29,9 +48,11 @@ function ui(){
   $('#banner').hidden = !S.example;
 
   const list = $('#lineList'); list.textContent = '';
-  VL().forEach(l => {
-    const b = document.createElement('button'); b.className = 'line-row'; b.type = 'button';
-    b.setAttribute('aria-current', l.id === sel.line);
+  const inTab = S.lines.filter(lineInTab);
+  inTab.forEach(l => {
+    const row = document.createElement('div'); row.className = 'line-row' + (l.hidden ? ' off' : '');
+    const b = document.createElement('button'); b.className = 'line-main'; b.type = 'button';
+    row.setAttribute('aria-current', l.id === sel.line);
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = l.name || T('Untitled'); b.title = l.name || '';
     const tg = document.createElement('span'); tg.className = 'tag' + (l.id === activeLine ? ' live' : '');
     tg.textContent = l.id === activeLine ? T('drawing') : T(MODES[l.mode].label) + (l.branches.length > 1 && !l.gameId ? ' · ' + l.branches.length + ' br' : '');
@@ -40,9 +61,22 @@ function ui(){
       if (activeLine != null && activeLine !== l.id) finishLine(false);
       sel = {line:l.id, branch:null, node:null}; ui(); draw();
     });
-    list.append(b);
+    // the eye: hide a line on the map (in every tab) without deleting it
+    const eye = document.createElement('button'); eye.type = 'button'; eye.className = 'eye'; eye.setAttribute('aria-pressed', String(!l.hidden));
+    eye.title = T(l.hidden ? 'Show on the map' : 'Hide from the map'); eye.setAttribute('aria-label', eye.title);
+    eye.innerHTML = l.hidden ? EYE_OFF : EYE_ON;
+    eye.addEventListener('click', e => { e.stopPropagation(); commit(); l.hidden = !l.hidden; ui(); draw(); });
+    row.append(b, eye);
+    list.append(row);
   });
   $('#linesEmpty').hidden = S.lines.length > 0;
+  { // "Show all" in the section title while something is hidden
+    const nHid = inTab.filter(l => l.hidden).length, h2 = $('#linesHead');
+    let all = $('#linesShowAll');
+    if (!all){ all = document.createElement('button'); all.type = 'button'; all.className = 'sc-all'; all.id = 'linesShowAll'; h2.after(all);
+      all.addEventListener('click', e => { e.stopPropagation(); commit(); S.lines.forEach(l => { if (lineInTab(l)) l.hidden = false; }); ui(); draw(); }); }
+    all.hidden = !nHid; all.textContent = T('Show all ({n} hidden)', {n:nHid});
+  }
 
   const l = sel.line != null ? lineById(sel.line) : null;
   $('#linePanel').hidden = !l;
@@ -51,6 +85,7 @@ function ui(){
     document.querySelectorAll('#lnModeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === l.mode)));
     document.querySelectorAll('#lnSwatches button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toLowerCase() === String(l.color).toLowerCase())));
     $('#lnCont').textContent = T(l.id === activeLine ? 'Stop drawing' : 'Draw branch');
+    $('#lnStats').textContent = lineStatsText(l);
     const r = selRun();
     $('#brBox').hidden = !r;
     if (r){

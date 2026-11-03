@@ -35,12 +35,26 @@ const lineById = id => S.lines.find(l => l.id === id);
 /* Each tab shows its own lines: Lines = the network (cargo optional), Coverage = passenger lines, Cargo = cargo lines. */
 let activeTab = 'lines';
 try { activeTab = localStorage.getItem('tfo-tab') || 'lines'; } catch {}
-function lineVisible(l){
+function lineInTab(l){
   if (activeTab === 'coverage') return !l.cargo;
   if (activeTab === 'cargo') return !!l.cargo;
   return !l.cargo || !!S.settings.linesShowCargo;
 }
+/* On the map: in this tab and not hidden with the eye in the line list. The list itself shows hidden lines too. */
+function lineVisible(l){ return lineInTab(l) && !l.hidden; }
 const VL = () => S.lines.filter(lineVisible);
+/* Length of a line in image pixels, every branch added up; divide by pxPerM() for metres on a game map. */
+function lineLengthPx(l){
+  let s = 0;
+  for (const b of l.branches) for (let i = 1; i < b.path.length; i++){ const a = S.nodes[b.path[i - 1]], c = S.nodes[b.path[i]]; if (a && c) s += Math.hypot(c.x - a.x, c.y - a.y); }
+  return s;
+}
+/* Stations a drawn line calls at (a game line's stops come from the game). */
+function lineStopCount(l){
+  const seen = new Set();
+  for (const b of l.branches) for (const n of b.path){ const st = S.stations[n]; if (st && !st.secondary) seen.add(st.sg != null ? 'g' + st.sg : 'n' + n); }
+  return seen.size;
+}
 function stopVisible(st){
   if (!st.solo) return true;
   return activeTab === 'cargo' ? !!st.cargo : !st.cargo;
