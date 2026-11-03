@@ -24,9 +24,12 @@ jobs:
         run: |
           npm ci
           npx electron-builder --win portable --publish never
+      - name: Artifact name without slashes
+        shell: bash
+        run: echo "SAFE_REF=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: TransitOverlay-test-${{ github.ref_name }}
+          name: TransitOverlay-test-${{ env.SAFE_REF }}
           path: desktop/dist/*.exe
           if-no-files-found: error
           retention-days: 14
