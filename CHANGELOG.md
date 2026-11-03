@@ -1,7 +1,7 @@
 # Changelog
 
 ## 2.11.0
-- Game map: roads are drawn by size, like a road atlas — lanes thin, streets white, avenues and highways wider with a warm fill. Needs mod revision 5 (restart the game so mod.io updates it) or a freshly copied console command, then re-import.
+- Game map: roads are drawn by size and type, like a road atlas — lanes thin, town streets white, avenues yellow, country roads grey-edged, highways orange. Needs mod revision 5 (restart the game so mod.io updates it) or a freshly copied console command, then re-import.
 
 ## 2.10.0
 - New look: warmer colours, bigger controls, cards in the side panel, and a legend on the map.

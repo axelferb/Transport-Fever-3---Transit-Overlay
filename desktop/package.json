@@ -9,11 +9,13 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win portable",
-    "dist:linux": "electron-builder --linux AppImage"
+    "dist:linux": "electron-builder --linux AppImage",
+    "export-cmd": "node scripts/export-cmd.js"
   },
   "devDependencies": {
     "electron": "33.2.1",
-    "electron-builder": "25.1.8"
+    "electron-builder": "25.1.8",
+    "luamin": "^1.0.4"
   },
   "build": {
     "appId": "se.axel.transitoverlay",

@@ -74,7 +74,7 @@ desktop/                    the Electron app
   logtools.js               finds the game log and the newest export in it
   preload.js                bridge for the page (window.desktop)
   app/index.html            the app itself
-console/                    the same exporter as a console command
+console/                    the same exporter as a console command (regenerate with `npm run export-cmd` in desktop/)
 ```
 
 ## Build the app
