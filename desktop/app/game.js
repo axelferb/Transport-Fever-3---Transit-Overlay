@@ -246,14 +246,19 @@ function edgeInterior(e){
   }
   return out;
 }
+/* adj[0] streets, adj[1] tracks, adj[2] both together (kind MIXED): a tram that leaves the street for a stretch of
+   railway is routed on the joint graph, which is connected where a street edge and a track edge share a node. */
+const MIXED = 2;
 function roadGraph(){
   if (graphCache) return graphCache;
-  const nodes = new Map(), adj = [new Map(), new Map()];
+  const nodes = new Map(), adj = [new Map(), new Map(), new Map()];
   S.game.edges.forEach((e, i) => {
     nodes.set(e[1], [e[3], e[4]]); nodes.set(e[2], [e[5], e[6]]);
-    const len = Math.hypot(e[5] - e[3], e[6] - e[4]) || 0.1, A = adj[e[11]];
-    if (!A.has(e[1])) A.set(e[1], []); if (!A.has(e[2])) A.set(e[2], []);
-    A.get(e[1]).push([e[2], len, i]); A.get(e[2]).push([e[1], len, i]);
+    const len = Math.hypot(e[5] - e[3], e[6] - e[4]) || 0.1;
+    for (const A of [adj[e[11]], adj[MIXED]]){
+      if (!A.has(e[1])) A.set(e[1], []); if (!A.has(e[2])) A.set(e[2], []);
+      A.get(e[1]).push([e[2], len, i]); A.get(e[2]).push([e[1], len, i]);
+    }
   });
   return graphCache = {nodes, adj};
 }
@@ -578,13 +583,21 @@ function orientChain(G, ents){
   });
   return {list, orient};
 }
-/* 1 if the line's vehicles mostly drive on tracks, 0 if mostly on streets, null if no route is known. */
-function runsOn(lineId){
+/* How many recorded edges of the line are tracks (t) and streets (st); null if no route is known. */
+function recordedKinds(lineId){
   const L = S.game.legs && S.game.legs[lineId]; if (!L || !S.game.edges) return null;
   const idx = prefSet([].concat(...Object.values(L)));
   let t = 0, st = 0; for (const i of idx){ if (S.game.edges[i][11] === 1) t++; else st++; }
-  return t + st < 3 ? null : t > st ? 1 : 0;
+  return {t, st};
 }
+/* 1 if the line's vehicles mostly drive on tracks, 0 if mostly on streets, null if no route is known. */
+function runsOn(lineId){
+  const r = recordedKinds(lineId); if (!r || r.t + r.st < 3) return null;
+  return r.t > r.st ? 1 : 0;
+}
+/* True when the line's vehicles were recorded on both streets and tracks (a tram with a stretch on railway, a
+   subway that surfaces onto the street): its stops may sit on either network and its legs are routed on both. */
+function mixedLine(lineId){ const r = recordedKinds(lineId); return !!r && r.t > 0 && r.st > 0; }
 function computeLegs(G){
   const legs = {};
   for (const r of G.raw){
@@ -653,26 +666,50 @@ function chainNodes(ents){
   });
   return dedupe(out);
 }
+/* Per-line choices that outlive a rebuild (re-import, roads on or off, game colours, a project reopened): the mode
+   shown (a subway reports itself as a tram) and whether the line is hidden, by game line id, kept on the game data. */
+function lineOpts(){ return S.game ? (S.game.lineOpts = S.game.lineOpts || {}) : {}; }
+function setLineOpt(l, key, value){ if (!l.gameId || !S.game) return; const o = lineOpts(), c = o[l.gameId] || (o[l.gameId] = {}); if (value == null || value === false) delete c[key]; else c[key] = value; if (!Object.keys(c).length) delete o[l.gameId]; }
 function buildGameNetwork(){
+  // what the lines on the map say now wins over what was noted earlier (an undo may have changed it)
+  if (S.game) for (const l of S.lines){ if (!l.gameId) continue; setLineOpt(l, 'hidden', !!l.hidden); const o = lineOpts()[l.gameId]; if (o && o.mode && o.mode !== l.mode) setLineOpt(l, 'mode', l.mode); }
   removeGameNetwork();
   if (!S.game || !S.game.xf) return;
+  const opts = lineOpts();
   const routing = S.settings.roads !== false && S.game.edges && S.game.edges.length > 0;
   if (routing) roadGraph();
   const stOf = {}, anchorC = {}, segC = {};
-  const anchor = (sg, k) => {
-    const key = sg + ':' + k;
-    if (!(key in anchorC)){ const gr = S.game.groups[sg]; anchorC[key] = (routing && k >= 0 && gr) ? nearestEdgeOfKind(gr.x, gr.y, k, 150) : null; }
+  // For lines on both networks, the edge a recorded leg ended on says which network each stop is on
+  // (a tram halt beside a railway is on the track, not on the street 80 m away).
+  const recAt = {};
+  if (routing && S.game.legs) for (const gl of S.game.lines){
+    const L = S.game.legs[gl.id]; if (!L || !mixedLine(gl.id)) continue;
+    for (const j in L){ const sg = gl.stops[+j], ents = L[j]; if (sg == null || !ents.length || recAt[sg] != null) continue; const set = prefSet([ents[ents.length - 1]]); if (set.size) recAt[sg] = [...set][0]; }
+  }
+  // The edge a stop sits on, of kind k; for a line on both networks (alt), the edge its vehicles were recorded
+  // arriving on, or the other kind when none of kind k is near.
+  const anchor = (sg, k, alt) => {
+    const key = sg + ':' + k + (alt ? '+' : '');
+    if (!(key in anchorC)){
+      const gr = S.game.groups[sg];
+      let an = null;
+      if (alt && gr && recAt[sg] != null){ const pr = projectOnEdge(recAt[sg], gr.x, gr.y); if (pr.d <= 150) an = {ei:recAt[sg], ...pr}; }
+      if (!an && routing && k >= 0 && gr) an = nearestEdgeOfKind(gr.x, gr.y, k, 150);
+      if (!an && alt && routing && k >= 0 && gr) an = nearestEdgeOfKind(gr.x, gr.y, 1 - k, 150);
+      anchorC[key] = an;
+    }
     return anchorC[key];
   };
   const seqOf = ei => { const e = S.game.edges[ei]; return [roadNodeId(e[1]), ...edgeNodeIds(ei, true), roadNodeId(e[2])]; };
   const stopOnEdge = [];   // {node, ei, seg, along}
-  const stNode = (sg, k) => {
-    const key = sg + ':' + k;
+  const stNode = (sg, k, alt) => {
+    const an = anchor(sg, k, alt);
+    // Stops are shared by the network they sit on, so a tram stop on the railway is the train line's marker too.
+    const key = sg + ':' + (an ? S.game.edges[an.ei][11] : k);
     if (stOf[key] != null) return stOf[key];
     const gr = S.game.groups[sg]; if (!gr || isNaN(gr.x)) return null;
     // A stop shared by bus and train lines gets one marker; reuse the first one made for this stop group.
     const other = Object.keys(stOf).find(kk => kk.startsWith(sg + ':'));
-    const an = anchor(sg, k);
     let id;
     if (other && !an) id = stOf[other];
     else {
@@ -715,23 +752,35 @@ function buildGameNetwork(){
   for (const gl of S.game.lines){
     // Route on the network the vehicles actually drive on (from their recorded routes), not only on
     // the line's mode: a light rail or subway can report itself as a tram but run on its own tracks.
-    const ran = runsOn(gl.id);
-    const mode = gameMode(gl) || (ran === 1 ? 'train' : ran === 0 ? 'bus' : null); if (!mode) continue;
-    const k = ran != null && mode !== 'ferry' ? ran : mode === 'train' ? 1 : (mode === 'bus' || mode === 'tram') ? 0 : -1;
+    const ran = runsOn(gl.id), mixed = routing && mixedLine(gl.id);
+    const derived = gameMode(gl) || (ran === 1 ? 'train' : ran === 0 ? 'bus' : null); if (!derived) continue;
+    const k = ran != null && derived !== 'ferry' ? ran : derived === 'train' ? 1 : (derived === 'bus' || derived === 'tram') ? 0 : -1;
+    // How the line is shown is the user's choice (a subway reports itself as a tram); how it is routed is the game's.
+    const opt = opts[gl.id] || {}, mode = (opt.mode && MODES[opt.mode]) ? opt.mode : derived;
     const stops = gl.stops.filter(sg => S.game.groups[sg] && !isNaN(S.game.groups[sg].x));
     if (stops.length < 2) continue;
     if (fbx && !stops.some(sg => inBox(fbx, S.game.groups[sg].x, S.game.groups[sg].y))) continue;
     const path = [];
+    let first = null, last = null;
+    // A leg of a line on both networks that no vehicle recorded (often the way back) keeps to the edges the line
+    // was recorded on elsewhere, so it returns along its tracks instead of the shortest street.
+    const anyRec = mixed ? prefSet([].concat(...Object.values(S.game.legs[gl.id]))) : null;
     // Lines run in a loop: after the last stop the vehicle returns to the first.
     const n = stops.length, legs = (n > 1 && stops[0] !== stops[n - 1]) ? n : n - 1;
     for (let i = 0; i < legs; i++){
       const a = stops[i], b = stops[(i + 1) % n];
-      const na = stNode(a, k), nb = stNode(b, k); if (na == null || nb == null) continue;
+      const na = stNode(a, k, mixed), nb = stNode(b, k, mixed); if (na == null || nb == null) continue;
+      if (first == null) first = na; if (i === legs - 1) last = legs === n ? na : nb; // the first and the last stop's markers
       const rec = routing && k >= 0 && S.game.legs && S.game.legs[gl.id] && S.game.legs[gl.id][(i + 1) % n];
-      const pref = rec ? prefSet(rec) : null;
+      const pref = rec ? prefSet(rec) : (anyRec && anyRec.size ? anyRec : null);
       path.push(na);
-      const A = anchor(a, k), B = anchor(b, k);
-      if (A && B){ const mid = leg(A, B, k, pref && pref.size ? pref : null, gl.id + '/' + i); if (mid){ path.push(...mid); if (pref && pref.size) fromGame++; else routed++; } else straight++; }
+      const A = anchor(a, k, mixed), B = anchor(b, k, mixed);
+      if (A && B){
+        // A leg recorded on both networks, or between stops on different networks, is routed on the joint graph.
+        const kk = mixed && (S.game.edges[A.ei][11] !== k || S.game.edges[B.ei][11] !== k || (pref && [...pref].some(ei => S.game.edges[ei][11] !== k))) ? MIXED : k;
+        const mid = leg(A, B, kk, pref && pref.size ? pref : null, gl.id + '/' + i);
+        if (mid){ path.push(...mid); if (rec && pref.size) fromGame++; else routed++; } else straight++;
+      }
       else if (k >= 0 && routing) straight++;
       path.push(nb);
     }
@@ -739,9 +788,10 @@ function buildGameNetwork(){
     if (p2.length < 2) continue;
     const idx = S.lines.filter(l => l.gameId).length;
     const color = S.settings.gameColors ? gl.color : PALETTE[idx % PALETTE.length];
-    S.lines.push({id:nid(), gameId:gl.id, name:gl.name, mode, color, branches:[{path:p2}], oneway:{}, cargo:!isPax(gl)});
-    const t0 = stOf[stops[0] + ':' + k], t1 = stOf[stops[n - 1] + ':' + k];
-    if (t0 != null) ends.add(t0); if (t1 != null) ends.add(t1);
+    const line = {id:nid(), gameId:gl.id, name:gl.name, mode, color, branches:[{path:p2}], oneway:{}, cargo:!isPax(gl)};
+    if (opt.hidden) line.hidden = true;
+    S.lines.push(line);
+    if (first != null) ends.add(first); if (last != null) ends.add(last);
   }
   // Put every stop on the shared road piece for all lines using that piece, so lines stay bundled through it.
   const bySeg = {};
@@ -869,6 +919,7 @@ function importGame(text){
   if (prev && prev.focus != null && G.towns[prev.focus] != null) G.focus = prev.focus;
   if (prev && prev.rot) G.rot = prev.rot;
   if (prev && prev.terrain && !G.terrain) G.terrain = prev.terrain;
+  if (prev && prev.lineOpts) G.lineOpts = prev.lineOpts; // the modes picked and lines hidden per game line
   if (prev && prev.xf && bg.kind === 'game') G.xf = prev.xf;
   G.legs = computeLegs(G);
   if (prev && prev.legs){

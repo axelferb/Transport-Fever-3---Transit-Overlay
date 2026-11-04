@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.14.1
+- Lines that run on both streets and tracks (a tram with a stretch on railway, a subway that comes up to the street) now follow the tracks where their vehicles were recorded on them, and their stops on the railway sit on the railway. Before, the whole line was drawn on one network, so a tram on train tracks was drawn on the shortest street instead. A leg no vehicle has recorded keeps to the stretches the line was recorded on elsewhere. Lines on one network only are drawn as before.
+- The mode picked for a game line (the game reports subways as trams; pick Subway) and lines hidden with the eye now stay that way when you re-import, redraw the lines or reopen the project. The line card says so for tram lines.
+
 ## 2.14.0
 - Building card: in Coverage or Cargo, click a home, shop or workplace (Edit tool) to see who lives, works or shops there and how they travel (walk, car, lines), which lines they were riding when you exported and between which stops, and, for shops, town industry and industries, where each kind of goods comes from, on which lines, and how many items are in vehicles, waiting at a station or still at the source. Needs mod revision 7.
 - Inspect tool: the first tool in Coverage and Cargo (and in Lines, key I). Click a building, stop, industry or line to see its card; nothing moves. Edit now only moves points, adds bends and cuts.

@@ -334,6 +334,7 @@ const STRINGS = {de:{
   "{n} seats": "{n} Sitzplätze",
   "{n} cargo capacity": "Frachtkapazität {n}",
   "Show the route the vehicles drive": "Die Route der Fahrzeuge anzeigen",
+  "The game reports subways as trams. Pick Subway here for a line that runs underground; the choice is kept when you re-import.": "Das Spiel meldet U-Bahnen als Straßenbahnen. Wähle hier U-Bahn für eine Linie, die unterirdisch fährt; die Wahl bleibt beim erneuten Import erhalten.",
   "{a} of {b} stretches were recorded from vehicles in the game; the rest of the line is the shortest road between stops.": "{a} von {b} Abschnitten stammen von Fahrzeugen im Spiel; der Rest der Linie ist der kürzeste Weg zwischen den Haltestellen.",
   "No vehicle on this line had reported its route when you exported. Export again while they are driving.": "Beim Export hatte kein Fahrzeug dieser Linie seine Route gemeldet. Exportiere erneut, während sie fahren.",
   "Heatmaps": "Heatmaps",

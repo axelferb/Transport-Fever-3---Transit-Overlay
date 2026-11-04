@@ -92,6 +92,10 @@ function ui(){
   if (l){
     setVal($('#lnName'), l.name); setVal($('#lnMode'), l.mode); setVal($('#lnColor'), l.color);
     document.querySelectorAll('#lnModeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === l.mode)));
+    { // the game reports a subway as a tram; the mode picked here stays when the lines are redrawn or re-imported
+      const gl = l.gameId && S.game ? S.game.lines.find(x => x.id === l.gameId) : null, note = $('#lnModeNote');
+      note.hidden = !(gl && gameMode(gl) === 'tram');
+      if (!note.hidden) note.textContent = T('The game reports subways as trams. Pick Subway here for a line that runs underground; the choice is kept when you re-import.'); }
     document.querySelectorAll('#lnSwatches button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color.toLowerCase() === String(l.color).toLowerCase())));
     $('#lnCont').textContent = T(l.id === activeLine ? 'Stop drawing' : 'Draw branch');
     $('#lnStats').textContent = lineStatsText(l);
@@ -206,7 +210,7 @@ $('#lnName').addEventListener('change', settle);
 $('#lnPath').addEventListener('change', e => { S.settings.vehiclePath = e.target.checked; autosave(); draw(); });
 $('#lnColor').addEventListener('input', e => { const l = curLine(); if (!l) return; liveEdit(); l.color = e.target.value; ui(); draw(); });
 $('#lnColor').addEventListener('change', settle);
-$('#lnMode').addEventListener('change', e => { const l = curLine(); if (!l) return; commit(); l.mode = e.target.value; ui(); draw(); });
+$('#lnMode').addEventListener('change', e => { const l = curLine(); if (!l) return; commit(); l.mode = e.target.value; setLineOpt(l, 'mode', l.mode); ui(); draw(); });
 $('#lnModeSeg').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (!b) return; const m = $('#lnMode'); m.value = b.dataset.mode; m.dispatchEvent(new Event('change')); });
 $('#lnSwatches').addEventListener('click', e => { const b = e.target.closest('button[data-color]'); if (!b) return; const c = $('#lnColor'); c.value = b.dataset.color; c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); });
 $('#lnCont').addEventListener('click', () => {
